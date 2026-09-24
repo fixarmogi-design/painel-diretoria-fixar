@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fechamento por Base — Fixar Soluções</title>
+<style>
+/* ============================== TOKENS (mesma linguagem do dashboard interno) ============================== */
+:root{
+  --r:10px; --r-sm:6px;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t:.16s cubic-bezier(.4,0,.2,1);
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d0d0d; --surface:#1a1a19; --surface-2:#232322; --surface-3:#2c2c2a;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.16);
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9085e9;
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.14);
+  --marca:#C2231D; --marca-esc:#76180E; --marca-ink:#F0F0EE;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f1f1ee; --surface:#fcfcfb; --surface-2:#f4f4f1; --surface-3:#e9e8e3;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#797771;
+  --grid:#e1e0d9; --border:rgba(11,11,11,.12); --border-2:rgba(11,11,11,.20);
+  --good:#0a8a0a; --warn:#b47c00; --serious:#c9603a; --crit:#c22f2f;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#4a3aa7;
+  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.10);
+  --marca:#C2231D; --marca-esc:#76180E; --marca-ink:#3C3C3A;
+  --shadow:0 1px 2px rgba(11,11,11,.06), 0 6px 20px rgba(11,11,11,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ============================== TOPO ============================== */
+.topbar{position:relative;overflow:hidden;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;padding:0 20px;height:64px}
+.topbar::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
+  background:linear-gradient(90deg,var(--marca-esc),var(--marca) 55%,var(--marca-esc))}
+.brand-mark{width:36px;height:36px;border-radius:9px;background:#fff;display:grid;place-items:center;flex:none;
+  overflow:hidden;box-shadow:0 0 0 1px var(--border)}
+.brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.brand-txt{line-height:1.25}
+.brand-txt b{font-size:14.5px;font-weight:800;letter-spacing:.2px;display:block}
+.brand-txt span{font-size:9.5px;color:var(--muted);letter-spacing:1.4px;text-transform:uppercase}
+.top-right{margin-left:auto;text-align:right;font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+.top-right b{display:block;font-size:15px;color:var(--ink);letter-spacing:0;text-transform:none;font-weight:800;margin-top:2px}
+
+/* ============================== LAYOUT ============================== */
+.wrap{max-width:1180px;margin:0 auto;padding:18px 20px 40px}
+.page-h{margin-bottom:14px}
+.page-h h1{font-size:19px;font-weight:800;letter-spacing:-.2px;margin:0}
+.page-h p{margin:4px 0 0;font-size:11.5px;color:var(--muted)}
+
+/* ============================== CARDS ============================== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--shadow);margin-bottom:12px}
+.card-h{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.card-t{font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase}
+.card-s{font-size:9.5px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.card-b{padding:13px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:12px}
+.kpi{display:flex;align-items:center;gap:11px;padding:13px}
+.kpi-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}
+.kpi-ic svg{width:18px;height:18px}
+.kpi-l{font-size:9.5px;color:var(--muted);letter-spacing:.9px;text-transform:uppercase;line-height:1.2}
+.kpi-v{font-size:21px;font-weight:800;letter-spacing:-.6px;line-height:1.2;margin-top:1px}
+
+.hbar{display:grid;grid-template-columns:1fr auto;gap:3px 8px;align-items:center;margin-bottom:10px}
+.hbar-n{font-size:10.5px;font-weight:700;letter-spacing:.3px}
+.hbar-v{font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right}
+.hbar-tr{display:block;grid-column:1/-1;height:10px;background:var(--surface-3);border-radius:0 4px 4px 0;overflow:hidden}
+.hbar-fl{display:block;height:100%;min-width:2px;border-radius:0 4px 4px 0;transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+.mini{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.mini:last-child{border-bottom:0}
+.mini-l{font-size:11px;color:var(--ink-2);line-height:1.5}
+.mini-v{font-size:10.5px;color:var(--muted);white-space:nowrap;flex:none}
+
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;
+  letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:20px;
+  background:var(--tg-bg);color:var(--tg);border:1px solid var(--tg-bd)}
+.tag i{width:5px;height:5px;border-radius:50%;background:currentColor;flex:none;font-style:normal}
+
+.tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+thead th{position:sticky;top:0;background:var(--surface-2);text-align:left;padding:8px 10px;
+  font-size:9.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:700;
+  border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--ink)}
+thead th .ar{opacity:.55;font-size:8px;margin-left:3px}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:10px}
+.field{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:0 9px;height:31px}
+.field svg{width:13px;height:13px;color:var(--muted);flex:none}
+.field input,.field select{background:none;border:0;outline:0;font-size:11.5px;height:100%;min-width:80px}
+.field input::placeholder{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:0 11px;height:31px;cursor:pointer;font-size:11px;font-weight:600;
+  letter-spacing:.4px;transition:var(--t);white-space:nowrap;color:var(--ink-2)}
+.btn:hover{background:var(--surface-2);border-color:var(--border-2);color:var(--ink)}
+.btn svg{width:13px;height:13px}
+
+.warnbox{border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.warnbox .card-b{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.vazio{padding:22px;text-align:center;color:var(--muted);font-size:11px}
+.footnote{margin-top:16px;font-size:10px;color:var(--muted);text-align:center;letter-spacing:.3px}
+.footnote b{color:var(--ink-2)}
+
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:.3px;color:var(--ink-2);transition:var(--t)}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab:hover:not(.active){background:var(--surface-2);color:var(--ink)}
+
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.duas h2{font-size:12.5px;font-weight:800;letter-spacing:.4px;margin:0 0 10px;display:flex;align-items:center;gap:7px}
+@media (max-width:760px){ .duas{grid-template-columns:1fr} }
+
+@media (max-width:760px){ .kpis{grid-template-columns:repeat(2,1fr)} }
+
+/* ============================== MÊS A MÊS POR BASE ============================== */
+.mat td[data-m],.mat td[data-b],.mat th[data-b],.mat td[data-limpar]{cursor:pointer}
+.mat td[data-m]:hover,.mat td[data-b]:hover{box-shadow:inset 0 0 0 1px var(--accent)}
+.mat td.mes{font-weight:700}
+.mat td.tot{font-weight:800}
+.mat tbody tr:hover{background:transparent}
+.mat tr.ref td{background:var(--accent-soft)}
+.mat tr.fim td{font-weight:800;border-top:2px solid var(--border-2);background:var(--surface-2)}
+.mat tr.fim-media td{background:color-mix(in srgb,var(--s2) 18%,var(--surface-2))}
+.mat .nota-inline{font-weight:400;font-size:9px;color:var(--muted);letter-spacing:.2px;text-transform:none;margin-left:6px;white-space:nowrap}
+.mat .ar{font-size:8px;opacity:.6;text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.btn.seg.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tabs .sp{flex:1}
+.top-right small{display:block;margin-top:3px;font-size:10px;font-weight:400;letter-spacing:.3px;opacity:.65}
+.btn:disabled{opacity:.4;cursor:default;pointer-events:none}
+.mat th.grp{text-align:center;border-bottom:1px solid var(--border)}
+.mat-nota{padding:7px 13px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand-mark" id="brandMark"><img src="data:image/png;base64,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TVPWyNVTqVTklSTqkGM0QbnT0WxCE3QZBdEag5iog9Es6qZcxhDiL7zwQnerjo4Oko033hjj9E1TrynQIcQItK2wYhaFW5KEWKzjBoaJM2H0onJJIQoHSg2PRjDGqgz1pKDNHhOsGRldPKGjyu0lGBJqGDC8CQZBF7Xx48e/9tpro0ePfu6553yu8XX5gQce+B1eI8IAABAASURBVPOf/3zTTTedcsopO+yww+mnn+55jZrPLPPPPz9l1oxlzbrY0RyCCLStsGIWUYkUaFHu6uoSaOkUdAy5Unv11Veff/75p59+WuYGimeffdaQF154QWpfeeUVSR0zZszrr7+OefHFF5XUmDFjbCp4k1qbGceNG/fQQw+NGjXq8ssvP++885TFL3/5S6djh+v9999/991333nnnbfddtsf/OAHm2+++ffe+OFBC6XgEH3IIYeceeaZDz/88NixYxWuY/s3v/lNU0wzzTSoxaKWGRn8ENpWWEKpbpSU3SjG13V/5513nnbaaUcddZRHoi222GKTTTbZbLPNZEvONhjgb8O3/uJosu9///sjR47cZptt1lxzzbXWWmudddbx/U4dgwcrvVtttZWHNfV0wgknKI5LL730yiuvvP7662+99VanpX/+858q75FHHvnf//7nNbqqVbKqx+7FggIFy3HLA5eNZUastNJKFqtLPZFQiwx+CCLQzsJySxJ6u5G9QUbXXnttD9JnnPH7yy675K677njyycfHjHm1p2c8jB8/NoRsoEgSL6qyPJdQG5MdasKECePYJHnppRd6eyeUy2m12rv66qvS/PnPD73ggvOeeOKx4cO7py3+18yZrkqllKZB79tAyJkoxDBYr1ezrIZXOi4Y9z51ZmJQQ8sss8xss81msTZFTXEEmpqYIYhA6p+2wPXqWj/uuOMcaR1HlJfki7W4u3e43M1iG5AkmiTkA4K8AiMRjGhKsynYVNOsufHZSGaccUYbz2233ea2O3z4cAXIMWp0OGAgMII2wRQJC4AhR/FGWcWIESM4bC6VFPHtb39bl1G2ZxRPjYKmgUMQgfdSWOIumpEyES/Tv/71rzvttNM555wTuwgp6EVJAB9ThSEcKIwFY8FYVFNGUWAfOjs7V155Zb3O2nYzTcnWi+FPHKIXA+RoROR1AYkmYDSb0DQdg5///Od9wovNJlV5ak5zCDECAy4s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RRdddNdddz311FPiD2/z/kOoLbe/J598kp+XXXbZBRdc8Ic//GHUqFEPPPAAZ+Bt/mgWhdW/I/JPP/30r351TEv873//866IGihYwEQw1wSJDdNr+pZGmsKjjz7y8cf/e9555xxxxC+OO+7Xv/71L381mXmj/Ljjjrv00kvN4m0+ahaX8kknnUQu+kcdddSxxx7L5rHH/irqT0qPPPLwk0464aijjoj/W+dqtTcEV12Ntcmg+F9sU6YGt99+K5vHHHMU2hKWYIpmF0/++td7DIzI87oZn3326ZtvvpGfO+64/frrr7v11j844ID9TjnlpMsuu+S2227529/ufeCB+//1r3/++98P3H//P/7859suv/zSU089ea+99thkk40222wTA++++86+vh7WarU+liPFFCupFWvxEtFynnjiiaYnb2P4GVeBwsknn3j44T9/8snHGWEWZR/Nstpjjz0qNRtuuP6222693377RGUSPvP/9NNPd3NU2XIBHDCvZlFYuCZih7RdMplfT08Pp5kwBKWPMtQEORCqcVmfjJmJ4quvvvpf//rX7bfffu2111544YWuhokdk/y5+OKLKRDffffd3IufcUxqoummm84Fffnll19xxRXUrrzySk2aLXHdddeJhXnPOussC3GR8HbKoCZ2dF566aWTTz6Zk4q7pXFCvddccw2GJxy+8847v/SlLxnLyH333XfCCSdss802m222mZ2JEWsnFyirsBZqaAS+JZ577jkr3WuvvTbZZBOzuD2NHz/eNYzSZwePidQeQ6cl+MkBERMKrtovr7/+enunlHEgWrCbihWHKbzyyiumkG5dEVHNjLGJRgkGisJ6W5/BVquvJUxMwUYFBuKpNS2SNJu6pmCHpqBQmHbaaUUWHy0b3hIqAHSZN1YVPlbYyJEjfThiIc5IQdfkYJZppplmwoQJV111VXTbpTKFIcyaF2XwhhtuePzxx/Ekmi3BJYviiV4Vv9NOO5nxlFNOWW+99fbYYw+l9vDDD5OwAOZtKnMGhAWMnRzYNxB9/fXX7fBbb731v//9b8q+mwljvAA0mUKjG5hJYRXAE5SyscCIpz/K4vPiiy/++Mc/Vlg8NB2Qq1c+Nz3ENKdghEKkmKKw/GnCMGh2N+VNRhcFwBBGaoL+IGwq0GkJLloDNQMtAxP/HbqWyoR0hCDCEAyhCsP7arTn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X6xLXf7tb39jkEu9vb3GthFDhTUxmCKOUweo0gHM6NGjbQ+77LLLcccdd+mll5566qluQL/4xS+isjTfdddduzZ+v/zlLy+55JLDDjtss802k1HHcDuBL+gSxiZ+zJgxhx9++K9//WtdLEf7GFXl68r1119vv1ETJnI2//nPf37mmWcqZR9ndthhB7c/VSX9itiXH5+5jj766EsvvdSTwfbbb7/HHns0y8t0N954Iyd9pXEZsMC45kMPPWQuPih9H+XMcuyxx6pdH4J89X/88cddAyqYTrswVFhviWSsmFgKcm+PGTVq1Oyzz+4bnA1JCueee265kRia9913n697TzzxhA+6Bx98sIKTM/dEm4GMKiBHmREjRki2mjANapQUoqYgwdgwMISoBz17iX1l5513PvHEE9X017/+dY+BnvtseDYen/PuueeeWWaZhSd6feCbf/7577zzTrOrORZ4q8TxLLhp2tW+8Y1vPPXUU74JvvbaawpdRVLj5wUXXIBfbLHFnnnmGZ8LVZXK1tUuDBXWm5GU5rgxqABS9w53IhWwzjrrrLLKKp/73Od8SFY9zssKTt0oL6nacsstff1VW5IkYXYRib/66qvdH9mxCcWE4dlnk2Wlo2oxhDYztaXrP//5j31LIZrCtveVr3xltdVWU9DLLLOMQnHbsiP+97//9V3ZTsOTpZde+tvf/vavfvWr5ZZbTvHZ4VSw6nebtqttvvnmX/ziF7/2ta/5qr3qqqva87yYMAW3F1100Y033thyllxySRW5/PLLP//88//85z+jS7xqC4YKa2IYpTZyKkn6pUdTiXjy8r7A0UoTpptuOsmWD6+O5GmOOeZYb7317DdKhAV03nnnXXfddQ23tciiGlI35MbiUXsDqoIxcSK3VBauuuoqe5ICXWCBBZo5JvfKap555plrrrkokLszqlTDozWbojud5p/+9Cc7qBOe4V/96ldNbSF0TL3++uvz7bbbbpt55pnVsRpy/zW1LgZth4ceeuh8881HwrF2YaiwJkaymYbYVg2YDTbYQEbvv/9+W5GXRm5VUvKFL3zBTuBYI+vuRO59NONwVLb0SqRz8TTTTIMhlHhpk2Y1RELHEDyqStzmTOfETdO2R4EyHdVpyGc/+1n70BprrGFfUdZmpKAgUKVJ4TOf+cxMM83EyN///nd23JoV36abbmortdd+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" alt="Fixar Soluções"></div>
+  <div class="brand-txt"><b>FIXAR SOLUÇÕES</b><span>Painel exclusivo da diretoria</span></div>
+  <div class="top-right">Referência<b id="topDate">--/--/----</b><small id="topAtual"></small></div>
+</div>
+
+<div class="wrap">
+  <div class="page-h">
+    <h1 id="pageTitle">Fechamento de medidores por base</h1>
+    <p id="subTitle">carregando…</p>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab" data-t="medidores">📟 Medidores</button>
+    <button class="tab" data-t="producao">📦 Blindagem</button>
+    <button class="tab" data-t="geral">🗂 Visão geral</button>
+    <span class="sp"></span>
+    <button class="btn" id="btnExport" title="Baixa em CSV a tabela que está na tela">⬇ Baixar CSV</button>
+    <button class="btn" id="btnImport" title="Escolha arquivos .csv com as colunas da planilha (data, base, quantidade…)">⬆ Importar CSV</button>
+    <input type="file" id="filePick" accept=".csv,.txt" multiple hidden>
+  </div>
+  <div id="avisoImport"></div>
+  <div id="main"></div>
+  <div class="footnote">Gerado automaticamente a partir dos lançamentos do bot · <b>não contém estoque, veículos, equipes ou qualquer outro dado interno do almoxarifado</b></div>
+</div>
+<script type="application/json" id="dados-embutidos">{"fechamento_bases": "data;hora;base;equipes;meta;quantidade;motivo;observacao;gerente\n03/08/2026;;RGE;2;;51;;;IMPORTADO\n03/08/2026;;EDP MOGI;2;;44;;;IMPORTADO\n03/08/2026;;EDP ESPIRITO SANTO;1;;13;;;IMPORTADO\n04/08/2026;;EDP MOGI;2;;50;;;IMPORTADO\n04/08/2026;;EDP ESPIRITO SANTO;6;;90;;;IMPORTADO\n04/08/2026;;CPFL PIRA;1;;42;;;IMPORTADO\n04/08/2026;;CPFL PAU;1;;53;;;IMPORTADO\n05/08/2026;;EDP MOGI;2;;50;;;IMPORTADO\n05/08/2026;;EDP ESPIRITO SANTO;7;;93;;;IMPORTADO\n05/08/2026;;CPFL PIRA;1;;40;;;IMPORTADO\n05/08/2026;;CPFL PAU;1;;43;;;IMPORTADO\n06/08/2026;;EDP MOGI;2;;48;;;IMPORTADO\n06/08/2026;;CPFL PIRA;;;22;;;IMPORTADO\n06/08/2026;;CPFL PAU;1;;39;;;IMPORTADO\n07/08/2026;;EDP MOGI;2;;51;;;IMPORTADO\n07/08/2026;;EDP ESPIRITO SANTO;8;;105;;;IMPORTADO\n07/08/2026;;CPFL PAU;1;;31;;;IMPORTADO\n08/08/2026;;EDP MOGI;2;;52;;;IMPORTADO\n10/08/2026;;EQUATORIAL;;;42;;;IMPORTADO\n10/08/2026;;EDP MOGI;2;;47;;;IMPORTADO\n10/08/2026;;EDP ESPIRITO SANTO;10;;172;;;IMPORTADO\n11/08/2026;;EQUATORIAL;2;;63;;;IMPORTADO\n11/08/2026;;EDP MOGI;2;;49;;;IMPORTADO\n11/08/2026;;EDP ESPIRITO SANTO;10;;154;;;IMPORTADO\n11/08/2026;;CPFL PAU;1;;16;;;IMPORTADO\n12/08/2026;;EDP MOGI;2;;44;;;IMPORTADO\n12/08/2026;;EDP ESPIRITO SANTO;10;;189;;;IMPORTADO\n12/08/2026;;CPFL PAU;1;;11;;;IMPORTADO\n13/08/2026;;EDP MOGI;2;;60;;;IMPORTADO\n13/08/2026;;EDP ESPIRITO SANTO;10;;174;;;IMPORTADO\n14/08/2026;;EDP MOGI;2;;64;;;IMPORTADO\n14/08/2026;;EDP ESPIRITO SANTO;10;;167;;;IMPORTADO\n15/08/2026;;EDP MOGI;2;;51;;;IMPORTADO\n15/08/2026;;EDP ESPIRITO SANTO;10;;194;;;IMPORTADO\n17/08/2026;;EQUATORIAL;2;;42;;;IMPORTADO\n17/08/2026;;EDP MOGI;2;;46;;;IMPORTADO\n17/08/2026;;EDP ESPIRITO SANTO;10;;171;;;IMPORTADO\n17/08/2026;;CPFL PAU;;;32;;;IMPORTADO\n18/08/2026;;EQUATORIAL;2;;63;;;IMPORTADO\n18/08/2026;;EDP MOGI;2;;48;;;IMPORTADO\n18/08/2026;;EDP ESPIRITO SANTO;10;;180;;;IMPORTADO\n18/08/2026;;CPFL PAU;1;;64;;;IMPORTADO\n19/08/2026;;EQUATORIAL;;;42;;;IMPORTADO\n19/08/2026;;EDP MOGI;2;;50;;;IMPORTADO\n19/08/2026;;EDP ESPIRITO SANTO;10;;101;;;IMPORTADO\n19/08/2026;;CPFL PIRA;1;;42;;;IMPORTADO\n19/08/2026;;CPFL PAU;1;;48;;;IMPORTADO\n20/08/2026;;EDP MOGI;2;;50;;;IMPORTADO\n20/08/2026;;EDP ESPIRITO SANTO;10;;153;;;IMPORTADO\n20/08/2026;;CPFL PAU;1;;57;;;IMPORTADO\n21/08/2026;;EDP MOGI;2;;50;;;IMPORTADO\n21/08/2026;;EDP ESPIRITO SANTO;10;;136;;;IMPORTADO\n21/08/2026;;CPFL PIRA;;;3;;;IMPORTADO\n21/08/2026;;CPFL PAU;1;;48;;;IMPORTADO\n22/08/2026;;EDP MOGI;2;;51;;;IMPORTADO\n22/08/2026;;EDP ESPIRITO SANTO;8;;141;;;IMPORTADO\n24/08/2026;;EDP MOGI;2;;49;;;IMPORTADO\n24/08/2026;;EDP ESPIRITO SANTO;10;;182;;;IMPORTADO\n24/08/2026;;CPFL PAU;1;;24;;;IMPORTADO\n25/08/2026;;EDP MOGI;2;;10;;;IMPORTADO\n25/08/2026;;EDP ESPIRITO SANTO;10;;158;;;IMPORTADO\n25/08/2026;;CPFL PAU;1;;100;;;IMPORTADO\n26/08/2026;;EDP MOGI;2;;25;;;IMPORTADO\n26/08/2026;;EDP ESPIRITO SANTO;10;;144;;;IMPORTADO\n26/08/2026;;CPFL PAU;1;;99;;;IMPORTADO\n27/08/2026;;EDP MOGI;2;;25;;;IMPORTADO\n27/08/2026;;EDP ESPIRITO SANTO;10;;116;;;IMPORTADO\n27/08/2026;;CPFL PAU;1;;101;;;IMPORTADO\n28/08/2026;;EDP MOGI;2;;54;;;IMPORTADO\n28/08/2026;;EDP ESPIRITO SANTO;10;;201;;;IMPORTADO\n28/08/2026;;CPFL PAU;1;;26;;;IMPORTADO\n29/08/2026;;EDP MOGI;2;;32;;;IMPORTADO\n31/08/2026;;RGE;2;;63;;;IMPORTADO\n31/08/2026;;EDP MOGI;2;;48;;;IMPORTADO\n31/08/2026;;EDP ESPIRITO SANTO;10;;163;;;IMPORTADO\n31/08/2026;;CPFL PIRA;1;;62;;;IMPORTADO\n31/08/2026;;CPFL PAU;1;;38;;;IMPORTADO\n01/09/2026;;RGE;2;;63;;;IMPORTADO\n01/09/2026;;EDP ESPIRITO SANTO;10;;204;;;IMPORTADO\n01/09/2026;;CPFL PIRA;1;;62;;;IMPORTADO\n01/09/2026;;CPFL PAU;1;;46;;;IMPORTADO\n02/09/2026;;RGE;2;;63;;;IMPORTADO\n02/09/2026;;EDP MOGI;2;;37;;;IMPORTADO\n02/09/2026;;EDP ESPIRITO SANTO;;;78;;;IMPORTADO\n02/09/2026;;CPFL PIRA;1;;42;;;IMPORTADO\n02/09/2026;;CPFL PAU;1;;66;;;IMPORTADO\n03/09/2026;;EDP MOGI;2;;54;;;IMPORTADO\n03/09/2026;;EDP ESPIRITO SANTO;3;;128;;;IMPORTADO\n03/09/2026;;CPFL PIRA;1;;42;;;IMPORTADO\n03/09/2026;;CPFL PAU;1;;58;;;IMPORTADO\n04/09/2026;;EDP MOGI;2;;55;;;IMPORTADO\n04/09/2026;;EDP ESPIRITO SANTO;5;;73;;;IMPORTADO\n04/09/2026;;CPFL PAU;1;;32;;;IMPORTADO\n08/09/2026;;EDP MOGI;2;;48;;;IMPORTADO\n09/09/2026;;EDP MOGI;2;;39;;;IMPORTADO\n09/09/2026;;EDP ESPIRITO SANTO;5;;74;;;IMPORTADO\n09/09/2026;;CPFL PAU;1;;53;;;IMPORTADO\n10/09/2026;;EDP MOGI;2;;31;;;IMPORTADO\n10/09/2026;;EDP ESPIRITO SANTO;6;;105;;;IMPORTADO\n10/09/2026;;CPFL PIRA;1;;40;;;IMPORTADO\n10/09/2026;;CPFL PAU;1;;62;;;IMPORTADO\n11/09/2026;;EDP MOGI;2;;40;;;IMPORTADO\n11/09/2026;;EDP ESPIRITO SANTO;5;;99;;;IMPORTADO\n11/09/2026;;CPFL PIRA;1;;42;;;IMPORTADO\n11/09/2026;;CPFL PAU;1;;51;;;IMPORTADO\n14/09/2026;;EDP MOGI;2;;45;;;IMPORTADO\n01/08/2026;;EDP MOGI;2;;82;;;IMPORTADO\n06/08/2026;;EDP ESPIRITO SANTO;7;;0;;;IMPORTADO\n07/08/2026;;CPFL PIRA;1;;0;;;IMPORTADO\n08/08/2026;;RGE;2;;0;;;IMPORTADO\n08/08/2026;;EDP ESPIRITO SANTO;10;;0;;;IMPORTADO\n10/08/2026;;RGE;2;;0;;;IMPORTADO\n13/08/2026;;CPFL PAU;1;;0;;;IMPORTADO\n29/08/2026;;RGE;2;;0;;;IMPORTADO\n29/08/2026;;EDP ESPIRITO SANTO;10;;0;;;IMPORTADO\n29/08/2026;;CPFL PIRA;1;;0;;;IMPORTADO\n29/08/2026;;CPFL PAU;1;;0;;;IMPORTADO\n01/09/2026;;EDP MOGI;2;;0;;;IMPORTADO\n03/09/2026;;RGE;2;;0;;;IMPORTADO\n04/09/2026;;RGE;2;;0;;;IMPORTADO\n05/09/2026;;EDP MOGI;2;;0;;;IMPORTADO\n08/09/2026;;RGE;2;;0;;;IMPORTADO\n09/09/2026;;RGE;2;;0;;;IMPORTADO\n10/09/2026;;RGE;2;;0;;;IMPORTADO\n11/09/2026;;RGE;2;;0;;;IMPORTADO\n14/09/2026;;RGE;2;;0;;;IMPORTADO\n19/09/2026;11:41;EDP MOGI;3;75;63;OUTRO;Roteiro de notas;Base Mogi Das Cruzes\n24/09/2026;00:39;EDP MOGI;2;50;50;;;Fixar Encarregado\n", "fechamento_producao": "data;hora;base;produto;equipes;meta;quantidade;motivo;observacao;gerente\n01/10/2025;;ENEL;CAIXA TANQUINHO;8;;10;;;IMPORTADO\n01/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/10/2025;;CEMIG;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n01/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n01/10/2025;;CPFL PAU;CAIXA TANQUINHO;14;;14;;;IMPORTADO\n02/10/2025;;ENEL;CAIXA TANQUINHO;8;;12;;;IMPORTADO\n02/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n02/10/2025;;CEMIG;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n02/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n02/10/2025;;CPFL PAU;CAIXA TANQUINHO;14;;15;;;IMPORTADO\n02/10/2025;;LIGHT;CAIXA TANQUINHO;3;;1;;;IMPORTADO\n03/10/2025;;ENEL;CAIXA TANQUINHO;8;;11;;;IMPORTADO\n03/10/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n03/10/2025;;CEMIG;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n03/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n03/10/2025;;CPFL PAU;CAIXA TANQUINHO;14;;8;;;IMPORTADO\n06/10/2025;;ENEL;CAIXA TANQUINHO;8;;13;;;IMPORTADO\n06/10/2025;;CEMIG;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n06/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n06/10/2025;;CPFL PAU;CAIXA TANQUINHO;14;;10;;;IMPORTADO\n07/10/2025;;ENEL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n07/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n07/10/2025;;CEMIG;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n07/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;1;;;IMPORTADO\n07/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n07/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;12;;;IMPORTADO\n08/10/2025;;ENEL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n08/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n08/10/2025;;CEMIG;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n08/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;1;;;IMPORTADO\n08/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;2;;;IMPORTADO\n08/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n08/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;14;;;IMPORTADO\n09/10/2025;;ENEL;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n09/10/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n09/10/2025;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n09/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;2;;;IMPORTADO\n09/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n09/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;14;;;IMPORTADO\n10/10/2025;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n10/10/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n10/10/2025;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n10/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n10/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n13/10/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/10/2025;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n13/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n14/10/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n14/10/2025;;CEMIG;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n14/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n14/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n14/10/2025;;LIGHT;CAIXA TANQUINHO;3;;1;;;IMPORTADO\n15/10/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n15/10/2025;;CEMIG;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n15/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n16/10/2025;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n16/10/2025;;CEMIG;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n16/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n16/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n17/10/2025;;CEMIG;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n17/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;2;;;IMPORTADO\n17/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n17/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n20/10/2025;;RGE;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n20/10/2025;;CEMIG;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n20/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;2;;;IMPORTADO\n20/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n20/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;15;;;IMPORTADO\n21/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n21/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n21/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;2;;;IMPORTADO\n21/10/2025;;CPFL PAU;CAIXA TANQUINHO;17;;12;;;IMPORTADO\n22/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n22/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n22/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;3;;;IMPORTADO\n22/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;4;;;IMPORTADO\n22/10/2025;;CPFL PIRA;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n22/10/2025;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n23/10/2025;;ENEL;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n23/10/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n23/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n23/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;3;;;IMPORTADO\n23/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;7;;;IMPORTADO\n23/10/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n23/10/2025;;CPFL PAU;CAIXA TANQUINHO;13;;13;;;IMPORTADO\n24/10/2025;;ENEL;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n24/10/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n24/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n24/10/2025;;EDP MOGI;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n24/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n24/10/2025;;CPFL PIRA;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n24/10/2025;;CPFL PAU;CAIXA TANQUINHO;13;;13;;;IMPORTADO\n27/10/2025;;ENEL;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n27/10/2025;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;3;;;IMPORTADO\n27/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;10;;;IMPORTADO\n27/10/2025;;CPFL PIRA;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/10/2025;;CPFL PAU;CAIXA TANQUINHO;11;;11;;;IMPORTADO\n28/10/2025;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n28/10/2025;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n28/10/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n28/10/2025;;EDP MOGI;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n28/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;9;;;IMPORTADO\n28/10/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n28/10/2025;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n29/10/2025;;ENEL;CAIXA TANQUINHO;;;16;;;IMPORTADO\n29/10/2025;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n29/10/2025;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n29/10/2025;;EDP MOGI;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n29/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;15;;;IMPORTADO\n29/10/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n29/10/2025;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n30/10/2025;;ENEL;CAIXA TANQUINHO;4;;18;;;IMPORTADO\n30/10/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n30/10/2025;;EDP MOGI;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n30/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;13;;;IMPORTADO\n30/10/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n30/10/2025;;CPFL PAU;CAIXA TANQUINHO;13;;15;;;IMPORTADO\n31/10/2025;;ENEL;CAIXA TANQUINHO;4;;24;;;IMPORTADO\n31/10/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n31/10/2025;;EDP MOGI;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n31/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;14;;;IMPORTADO\n31/10/2025;;CPFL PIRA;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n31/10/2025;;CPFL PAU;CAIXA TANQUINHO;13;;13;;;IMPORTADO\n03/11/2025;;ENEL;CAIXA TANQUINHO;3;;12;;;IMPORTADO\n03/11/2025;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n03/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n03/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;15;;;IMPORTADO\n03/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n03/11/2025;;CPFL PAU;CAIXA TANQUINHO;13;;12;;;IMPORTADO\n04/11/2025;;ENEL;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n04/11/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n04/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n04/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n04/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;18;;;IMPORTADO\n04/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n04/11/2025;;CPFL PAU;CAIXA TANQUINHO;13;;12;;;IMPORTADO\n05/11/2025;;ENEL;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n05/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n05/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n05/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;19;;;IMPORTADO\n05/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n05/11/2025;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n06/11/2025;;ENEL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n06/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n06/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n06/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;18;;;IMPORTADO\n06/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n06/11/2025;;CPFL PAU;CAIXA TANQUINHO;16;;18;;;IMPORTADO\n07/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n07/11/2025;;CEMIG;CAIXA TANQUINHO;6;;2;;;IMPORTADO\n07/11/2025;;EDP MOGI;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n07/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;13;;;IMPORTADO\n07/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;1;;;IMPORTADO\n07/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n10/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n10/11/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n10/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n10/11/2025;;EDP MOGI;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n10/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;16;;;IMPORTADO\n10/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n10/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n11/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n11/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n11/11/2025;;EDP MOGI;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n11/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;15;;;IMPORTADO\n11/11/2025;;CPFL PAU;CAIXA TANQUINHO;9;;6;;;IMPORTADO\n12/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n12/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n12/11/2025;;EDP MOGI;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n12/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;15;;;IMPORTADO\n12/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n12/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;14;;;IMPORTADO\n13/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n13/11/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/11/2025;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/11/2025;;EDP MOGI;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n13/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;14;;;IMPORTADO\n13/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;20;;;IMPORTADO\n14/11/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n14/11/2025;;EDP MOGI;CAIXA TANQUINHO;4;;7;;;IMPORTADO\n14/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;14;;;IMPORTADO\n17/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n17/11/2025;;RGE;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n17/11/2025;;EDP MOGI;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n17/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;13;;;IMPORTADO\n17/11/2025;;CPFL PAU;CAIXA TANQUINHO;12;;15;;;IMPORTADO\n18/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n18/11/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n18/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n18/11/2025;;EDP MOGI;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n18/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n18/11/2025;;CPFL PAU;CAIXA TANQUINHO;13;;15;;;IMPORTADO\n19/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n19/11/2025;;RGE;CAIXA TANQUINHO;;;4;;;IMPORTADO\n19/11/2025;;EDP MOGI;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n19/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;12;;;IMPORTADO\n19/11/2025;;CPFL PAU;CAIXA TANQUINHO;9;;12;;;IMPORTADO\n21/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n21/11/2025;;RGE;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n21/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n21/11/2025;;EDP MOGI;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n21/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;2;;;IMPORTADO\n21/11/2025;;CPFL PAU;CAIXA TANQUINHO;14;;18;;;IMPORTADO\n24/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n24/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n24/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n24/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n24/11/2025;;CPFL PAU;CAIXA TANQUINHO;14;;16;;;IMPORTADO\n25/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n25/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n25/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n25/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;9;;;IMPORTADO\n25/11/2025;;CPFL PAU;CAIXA TANQUINHO;14;;17;;;IMPORTADO\n26/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n26/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n26/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n26/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n26/11/2025;;CPFL PAU;CAIXA TANQUINHO;14;;18;;;IMPORTADO\n27/11/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n27/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/11/2025;;EDP MOGI;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n27/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;7;;;IMPORTADO\n27/11/2025;;CPFL PAU;CAIXA TANQUINHO;15;;20;;;IMPORTADO\n28/11/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n28/11/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n28/11/2025;;EDP MOGI;CAIXA TANQUINHO;9;;13;;;IMPORTADO\n28/11/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;8;;;IMPORTADO\n28/11/2025;;CPFL PAU;CAIXA TANQUINHO;15;;17;;;IMPORTADO\n29/11/2025;;EDP MOGI;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n01/12/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n01/12/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n01/12/2025;;EDP MOGI;CAIXA TANQUINHO;8;;15;;;IMPORTADO\n01/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n01/12/2025;;CPFL PAU;CAIXA TANQUINHO;12;;10;;;IMPORTADO\n02/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n02/12/2025;;CEMIG;CAIXA TANQUINHO;;;6;;;IMPORTADO\n02/12/2025;;EDP MOGI;CAIXA TANQUINHO;8;;11;;;IMPORTADO\n02/12/2025;;CPFL PAU;CAIXA TANQUINHO;12;;18;;;IMPORTADO\n03/12/2025;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n03/12/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n03/12/2025;;EDP MOGI;CAIXA TANQUINHO;7;;10;;;IMPORTADO\n03/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n03/12/2025;;CPFL PAU;CAIXA TANQUINHO;12;;17;;;IMPORTADO\n04/12/2025;;ENEL;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n04/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n04/12/2025;;EDP MOGI;CAIXA TANQUINHO;8;;9;;;IMPORTADO\n04/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n04/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;16;;;IMPORTADO\n05/12/2025;;ENEL;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n05/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n05/12/2025;;EDP MOGI;CAIXA TANQUINHO;8;;9;;;IMPORTADO\n05/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n05/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;20;;;IMPORTADO\n06/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n08/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n08/12/2025;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n08/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;10;;;IMPORTADO\n08/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n09/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n09/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n09/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;9;;;IMPORTADO\n09/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;14;;;IMPORTADO\n10/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n10/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n10/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n10/12/2025;;CPFL PAU;CAIXA TANQUINHO;12;;20;;;IMPORTADO\n11/12/2025;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n11/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n11/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n11/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n11/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;18;;;IMPORTADO\n12/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n12/12/2025;;RGE;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n12/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n12/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n12/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n12/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;18;;;IMPORTADO\n13/12/2025;;RGE;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n13/12/2025;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/12/2025;;EDP MOGI;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n13/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n13/12/2025;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/12/2025;;ENEL;CAIXA TANQUINHO;3;;12;;;IMPORTADO\n15/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n15/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n15/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;16;;;IMPORTADO\n16/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n16/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n16/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;9;;;IMPORTADO\n16/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n16/12/2025;;CPFL PAU;CAIXA TANQUINHO;14;;16;;;IMPORTADO\n17/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n17/12/2025;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n17/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;9;;;IMPORTADO\n17/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n17/12/2025;;CPFL PAU;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n18/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n18/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n18/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;12;;;IMPORTADO\n18/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n19/12/2025;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n19/12/2025;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n19/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;13;;;IMPORTADO\n19/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n20/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n20/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n22/12/2025;;ENEL;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n22/12/2025;;CEMIG;CAIXA TANQUINHO;8;;4;;;IMPORTADO\n22/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n22/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n23/12/2025;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n23/12/2025;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n23/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n24/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;2;;;IMPORTADO\n29/12/2025;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n29/12/2025;;EDP MOGI;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n29/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n30/12/2025;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n30/12/2025;;EDP MOGI;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n05/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n05/01/2026;;CEMIG;CAIXA TANQUINHO;12;;4;;;IMPORTADO\n05/01/2026;;EDP MOGI;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n05/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;4;;;IMPORTADO\n05/01/2026;;CPFL PAU;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n06/01/2026;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n06/01/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n06/01/2026;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n06/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n06/01/2026;;CPFL PAU;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n07/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n07/01/2026;;RGE;CAIXA TANQUINHO;2;;1;;;IMPORTADO\n07/01/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n07/01/2026;;EDP MOGI;CAIXA TANQUINHO;5;;13;;;IMPORTADO\n07/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;6;;;IMPORTADO\n07/01/2026;;CPFL PAU;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n08/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n08/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n08/01/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n08/01/2026;;EDP MOGI;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n08/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n08/01/2026;;CPFL PAU;CAIXA TANQUINHO;5;;4;;;IMPORTADO\n09/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n09/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n09/01/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n09/01/2026;;EDP MOGI;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n09/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n09/01/2026;;CPFL PAU;CAIXA TANQUINHO;5;;4;;;IMPORTADO\n12/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n12/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n12/01/2026;;CEMIG;CAIXA TANQUINHO;6;;5;;;IMPORTADO\n12/01/2026;;EDP MOGI;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n12/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n12/01/2026;;CPFL PAU;CAIXA TANQUINHO;12;;15;;;IMPORTADO\n13/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n13/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n13/01/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n13/01/2026;;EDP MOGI;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n13/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n13/01/2026;;CPFL PAU;CAIXA TANQUINHO;12;;16;;;IMPORTADO\n14/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n14/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n14/01/2026;;CEMIG;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n14/01/2026;;EDP MOGI;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n14/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n14/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;12;;;IMPORTADO\n15/01/2026;;ENEL;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n15/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n15/01/2026;;CEMIG;CAIXA TANQUINHO;6;;4;;;IMPORTADO\n15/01/2026;;EDP MOGI;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n15/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;13;;;IMPORTADO\n15/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;14;;;IMPORTADO\n16/01/2026;;ENEL;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n16/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n16/01/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n16/01/2026;;EDP MOGI;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n16/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n16/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;12;;;IMPORTADO\n17/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;14;;;IMPORTADO\n19/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n19/01/2026;;RGE;CAIXA TANQUINHO;5;;3;;;IMPORTADO\n19/01/2026;;CEMIG;CAIXA TANQUINHO;4;;2;;;IMPORTADO\n19/01/2026;;EDP MOGI;CAIXA TANQUINHO;6;;13;;;IMPORTADO\n19/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;10;;;IMPORTADO\n19/01/2026;;CPFL PAU;CAIXA TANQUINHO;13;;15;;;IMPORTADO\n20/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n20/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n20/01/2026;;EDP MOGI;CAIXA TANQUINHO;6;;14;;;IMPORTADO\n20/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;12;;;IMPORTADO\n20/01/2026;;CPFL PAU;CAIXA TANQUINHO;11;;7;;;IMPORTADO\n21/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n21/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n21/01/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n21/01/2026;;EDP MOGI;CAIXA TANQUINHO;6;;16;;;IMPORTADO\n21/01/2026;;CPFL PAU;CAIXA TANQUINHO;11;;12;;;IMPORTADO\n22/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n22/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n22/01/2026;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n22/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;13;;;IMPORTADO\n22/01/2026;;CPFL PAU;CAIXA TANQUINHO;12;;13;;;IMPORTADO\n23/01/2026;;ENEL;CAIXA TANQUINHO;2;;9;;;IMPORTADO\n23/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n23/01/2026;;EDP MOGI;CAIXA TANQUINHO;7;;18;;;IMPORTADO\n23/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;12;;;IMPORTADO\n23/01/2026;;CPFL PAU;CAIXA TANQUINHO;12;;15;;;IMPORTADO\n24/01/2026;;EDP MOGI;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n24/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;14;;;IMPORTADO\n26/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n26/01/2026;;RGE;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n26/01/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n26/01/2026;;EDP MOGI;CAIXA TANQUINHO;7;;9;;;IMPORTADO\n26/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n26/01/2026;;CPFL PIRA;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n26/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;8;;;IMPORTADO\n27/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n27/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n27/01/2026;;CEMIG;CAIXA TANQUINHO;6;;12;;;IMPORTADO\n27/01/2026;;EDP MOGI;CAIXA TANQUINHO;7;;11;;;IMPORTADO\n27/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n27/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n28/01/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n28/01/2026;;RGE;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n28/01/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n28/01/2026;;EDP MOGI;CAIXA TANQUINHO;6;;11;;;IMPORTADO\n28/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n28/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n29/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n29/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n29/01/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n29/01/2026;;EDP MOGI;CAIXA TANQUINHO;8;;14;;;IMPORTADO\n29/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;7;;;IMPORTADO\n29/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n30/01/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n30/01/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n30/01/2026;;CEMIG;CAIXA TANQUINHO;16;;8;;;IMPORTADO\n30/01/2026;;EDP MOGI;CAIXA TANQUINHO;7;;13;;;IMPORTADO\n30/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n30/01/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n31/01/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n02/02/2026;;ENEL;CAIXA TANQUINHO;6;;15;;;IMPORTADO\n02/02/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n02/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n02/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;20;;;IMPORTADO\n02/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n02/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n03/02/2026;;ENEL;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n03/02/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n03/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n03/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;16;;;IMPORTADO\n03/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n03/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n04/02/2026;;ENEL;CAIXA TANQUINHO;5;;13;;;IMPORTADO\n04/02/2026;;RGE;CAIXA TANQUINHO;3;;1;;;IMPORTADO\n04/02/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n04/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;22;;;IMPORTADO\n04/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;13;;;IMPORTADO\n04/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n05/02/2026;;ENEL;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n05/02/2026;;RGE;CAIXA TANQUINHO;2;;1;;;IMPORTADO\n05/02/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n05/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;20;;;IMPORTADO\n05/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n05/02/2026;;CPFL PAU;CAIXA TANQUINHO;11;;12;;;IMPORTADO\n06/02/2026;;ENEL;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n06/02/2026;;RGE;CAIXA TANQUINHO;1;;1;;;IMPORTADO\n06/02/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n06/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;21;;;IMPORTADO\n06/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;16;;;IMPORTADO\n06/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n09/02/2026;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n09/02/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n09/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;14;;;IMPORTADO\n09/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n09/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;8;;;IMPORTADO\n10/02/2026;;ENEL;CAIXA TANQUINHO;5;;16;;;IMPORTADO\n10/02/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n10/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;15;;;IMPORTADO\n10/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;15;;;IMPORTADO\n10/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n11/02/2026;;ENEL;CAIXA TANQUINHO;5;;12;;;IMPORTADO\n11/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n11/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;21;;;IMPORTADO\n11/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n12/02/2026;;ENEL;CAIXA TANQUINHO;5;;13;;;IMPORTADO\n12/02/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n12/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;17;;;IMPORTADO\n12/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n12/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n13/02/2026;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n13/02/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n13/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;18;;;IMPORTADO\n13/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n13/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;8;;;IMPORTADO\n14/02/2026;;EDP MOGI;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n16/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;18;;;IMPORTADO\n16/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;10;;;IMPORTADO\n17/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;18;;;IMPORTADO\n17/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n18/02/2026;;ENEL;CAIXA TANQUINHO;;;13;;;IMPORTADO\n18/02/2026;;RGE;CAIXA TANQUINHO;2;;1;;;IMPORTADO\n18/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;19;;;IMPORTADO\n18/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;14;;;IMPORTADO\n18/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n19/02/2026;;ENEL;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n19/02/2026;;EDP MOGI;CAIXA TANQUINHO;7;;19;;;IMPORTADO\n19/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n19/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n20/02/2026;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n20/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n20/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;20;;;IMPORTADO\n20/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n20/02/2026;;CPFL PAU;CAIXA TANQUINHO;9;;10;;;IMPORTADO\n23/02/2026;;ENEL;CAIXA TANQUINHO;5;;16;;;IMPORTADO\n23/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n23/02/2026;;EDP MOGI;CAIXA TANQUINHO;8;;21;;;IMPORTADO\n23/02/2026;;CPFL PIRA;CAIXA TANQUINHO;;;3;;;IMPORTADO\n23/02/2026;;CPFL PAU;CAIXA TANQUINHO;10;;8;;;IMPORTADO\n24/02/2026;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n24/02/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n24/02/2026;;EDP MOGI;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n24/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n24/02/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n24/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n25/02/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n25/02/2026;;EDP MOGI;CAIXA TANQUINHO;6;;18;;;IMPORTADO\n25/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n25/02/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n25/02/2026;;CPFL PAU;CAIXA TANQUINHO;7;;11;;;IMPORTADO\n26/02/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n26/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n26/02/2026;;EDP MOGI;CAIXA TANQUINHO;4;;9;;;IMPORTADO\n26/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;9;;;IMPORTADO\n26/02/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n26/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n27/02/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n27/02/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n27/02/2026;;EDP MOGI;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n27/02/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n27/02/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n27/02/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n02/03/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n02/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n02/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;7;;;IMPORTADO\n02/03/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n03/03/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n03/03/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n03/03/2026;;EDP MOGI;CAIXA TANQUINHO;6;;12;;;IMPORTADO\n03/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n03/03/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n04/03/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n04/03/2026;;CEMIG;CAIXA TANQUINHO;4;;1;;;IMPORTADO\n04/03/2026;;EDP MOGI;CAIXA TANQUINHO;7;;13;;;IMPORTADO\n04/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;14;;;IMPORTADO\n05/03/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n05/03/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n05/03/2026;;EDP MOGI;CAIXA TANQUINHO;7;;16;;;IMPORTADO\n05/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n05/03/2026;;CPFL PAU;CAIXA TANQUINHO;9;;9;;;IMPORTADO\n06/03/2026;;ENEL;CAIXA TANQUINHO;3;;10;;;IMPORTADO\n06/03/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n06/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n06/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;13;;;IMPORTADO\n06/03/2026;;CPFL PAU;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n09/03/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n09/03/2026;;EDP MOGI;CAIXA TANQUINHO;6;;17;;;IMPORTADO\n09/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n10/03/2026;;ENEL;CAIXA TANQUINHO;2;;7;;;IMPORTADO\n10/03/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n10/03/2026;;EDP MOGI;CAIXA TANQUINHO;6;;15;;;IMPORTADO\n10/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;9;;;IMPORTADO\n10/03/2026;;CPFL PAU;CAIXA TANQUINHO;10;;12;;;IMPORTADO\n11/03/2026;;ENEL;CAIXA TANQUINHO;3;;7;;;IMPORTADO\n11/03/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n11/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n11/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;9;;;IMPORTADO\n11/03/2026;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n12/03/2026;;ENEL;CAIXA TANQUINHO;2;;7;;;IMPORTADO\n12/03/2026;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n12/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;14;;;IMPORTADO\n12/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n13/03/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n13/03/2026;;EDP MOGI;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n13/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n13/03/2026;;CPFL PAU;CAIXA TANQUINHO;12;;12;;;IMPORTADO\n16/03/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n16/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n16/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;14;;;IMPORTADO\n16/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;17;;;IMPORTADO\n16/03/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n16/03/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n17/03/2026;;ENEL;CAIXA TANQUINHO;2;;7;;;IMPORTADO\n17/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n17/03/2026;;EDP MOGI;CAIXA TANQUINHO;6;;15;;;IMPORTADO\n17/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;23;;;IMPORTADO\n17/03/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n17/03/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n18/03/2026;;ENEL;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n18/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n18/03/2026;;EDP MOGI;CAIXA TANQUINHO;5;;16;;;IMPORTADO\n18/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;23;;;IMPORTADO\n18/03/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n18/03/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n19/03/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n19/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n19/03/2026;;EDP MOGI;CAIXA TANQUINHO;4;;10;;;IMPORTADO\n19/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;18;;;IMPORTADO\n19/03/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n19/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n20/03/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n20/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n20/03/2026;;EDP MOGI;CAIXA TANQUINHO;7;;15;;;IMPORTADO\n20/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;24;;;IMPORTADO\n20/03/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n20/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n21/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;3;;9;;;IMPORTADO\n23/03/2026;;ENEL;CAIXA TANQUINHO;4;;20;;;IMPORTADO\n23/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n23/03/2026;;EDP MOGI;CAIXA TANQUINHO;12;;28;;;IMPORTADO\n23/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;27;;;IMPORTADO\n23/03/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n24/03/2026;;ENEL;CAIXA TANQUINHO;4;;7;;;IMPORTADO\n24/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n24/03/2026;;EDP MOGI;CAIXA TANQUINHO;10;;24;;;IMPORTADO\n24/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;27;;;IMPORTADO\n24/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n25/03/2026;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n25/03/2026;;EDP MOGI;CAIXA TANQUINHO;10;;30;;;IMPORTADO\n25/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;31;;;IMPORTADO\n25/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n26/03/2026;;ENEL;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n26/03/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n26/03/2026;;EDP MOGI;CAIXA TANQUINHO;10;;29;;;IMPORTADO\n26/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n26/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/03/2026;;ENEL;CAIXA TANQUINHO;4;;12;;;IMPORTADO\n27/03/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n27/03/2026;;EDP MOGI;CAIXA TANQUINHO;9;;19;;;IMPORTADO\n27/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n27/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n30/03/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n30/03/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n30/03/2026;;EDP MOGI;CAIXA TANQUINHO;10;;34;;;IMPORTADO\n30/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n30/03/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n31/03/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n31/03/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n31/03/2026;;EDP MOGI;CAIXA TANQUINHO;10;;30;;;IMPORTADO\n31/03/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;33;;;IMPORTADO\n31/03/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n31/03/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n01/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n01/04/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/04/2026;;EDP MOGI;CAIXA TANQUINHO;12;;40;;;IMPORTADO\n01/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;35;;;IMPORTADO\n01/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n01/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n02/04/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n02/04/2026;;EDP MOGI;CAIXA TANQUINHO;11;;32;;;IMPORTADO\n02/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;33;;;IMPORTADO\n02/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n02/04/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n06/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n06/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;34;;;IMPORTADO\n06/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;32;;;IMPORTADO\n06/04/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n07/04/2026;;ENEL;CAIXA TANQUINHO;4;;9;;;IMPORTADO\n07/04/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n07/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;31;;;IMPORTADO\n07/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n07/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n08/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n08/04/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n08/04/2026;;EDP MOGI;CAIXA TANQUINHO;8;;24;;;IMPORTADO\n08/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n08/04/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n08/04/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n09/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n09/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;32;;;IMPORTADO\n09/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;32;;;IMPORTADO\n09/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n09/04/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n10/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n10/04/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n10/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;31;;;IMPORTADO\n10/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n10/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n11/04/2026;;EDP MOGI;CAIXA TANQUINHO;5;;11;;;IMPORTADO\n11/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;;;30;;;IMPORTADO\n13/04/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n13/04/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n13/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;27;;;IMPORTADO\n13/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;17;;;IMPORTADO\n13/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n13/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n14/04/2026;;ENEL;CAIXA TANQUINHO;3;;12;;;IMPORTADO\n14/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n14/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n14/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;27;;;IMPORTADO\n14/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n14/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n15/04/2026;;ENEL;CAIXA TANQUINHO;4;;16;;;IMPORTADO\n15/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n15/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;30;;;IMPORTADO\n15/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;33;;;IMPORTADO\n15/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n16/04/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n16/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n16/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;33;;;IMPORTADO\n16/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;34;;;IMPORTADO\n16/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n16/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n17/04/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n17/04/2026;;CEMIG;CAIXA TANQUINHO;10;;5;;;IMPORTADO\n17/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;30;;;IMPORTADO\n17/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n17/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n17/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n20/04/2026;;EDP MOGI;CAIXA TANQUINHO;2;;7;;;IMPORTADO\n20/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n20/04/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n22/04/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n22/04/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n22/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;23;;;IMPORTADO\n22/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;16;;;IMPORTADO\n22/04/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n22/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n23/04/2026;;ENEL;CAIXA TANQUINHO;2;;6;;;IMPORTADO\n23/04/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n23/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;29;;;IMPORTADO\n23/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n23/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n23/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n24/04/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n24/04/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n24/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;26;;;IMPORTADO\n24/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n24/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n24/04/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n25/04/2026;;EDP MOGI;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n27/04/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n27/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n27/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;15;;;IMPORTADO\n27/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;29;;;IMPORTADO\n27/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n27/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n28/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n28/04/2026;;EDP MOGI;CAIXA TANQUINHO;9;;15;;;IMPORTADO\n28/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;29;;;IMPORTADO\n28/04/2026;;CPFL PIRA;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n29/04/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n29/04/2026;;CEMIG;CAIXA TANQUINHO;10;;10;;;IMPORTADO\n29/04/2026;;EDP MOGI;CAIXA TANQUINHO;10;;24;;;IMPORTADO\n29/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n29/04/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n29/04/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n30/04/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n30/04/2026;;EDP MOGI;CAIXA TANQUINHO;11;;22;;;IMPORTADO\n30/04/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n30/04/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n04/05/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n04/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n04/05/2026;;EDP MOGI;CAIXA TANQUINHO;9;;15;;;IMPORTADO\n04/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;23;;;IMPORTADO\n04/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n05/05/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n05/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n05/05/2026;;CEMIG;CAIXA TANQUINHO;5;;10;;;IMPORTADO\n05/05/2026;;EDP MOGI;CAIXA TANQUINHO;9;;19;;;IMPORTADO\n05/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;30;;;IMPORTADO\n05/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n06/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n06/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n06/05/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n06/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;16;;;IMPORTADO\n06/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;29;;;IMPORTADO\n06/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n07/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n07/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n07/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;19;;;IMPORTADO\n07/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n07/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;4;;;IMPORTADO\n08/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n08/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n08/05/2026;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n08/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;19;;;IMPORTADO\n08/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n08/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;4;;;IMPORTADO\n11/05/2026;;ENEL;CAIXA TANQUINHO;2;;5;;;IMPORTADO\n11/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n11/05/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n11/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;24;;;IMPORTADO\n11/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;24;;;IMPORTADO\n11/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n11/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;4;;;IMPORTADO\n12/05/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n12/05/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n12/05/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n12/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n12/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n12/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n12/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n13/05/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n13/05/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n13/05/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n13/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;19;;;IMPORTADO\n13/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;26;;;IMPORTADO\n13/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n13/05/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n14/05/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n14/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n14/05/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n14/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;14;;;IMPORTADO\n14/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n14/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n14/05/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/05/2026;;ENEL;CAIXA TANQUINHO;2;;6;;;IMPORTADO\n15/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n15/05/2026;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;20;;;IMPORTADO\n15/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;22;;;IMPORTADO\n15/05/2026;;CPFL PIRA;CAIXA TANQUINHO;1;;1;;;IMPORTADO\n15/05/2026;;CPFL PAU;CAIXA TANQUINHO;6;;4;;;IMPORTADO\n18/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n18/05/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;3;;;IMPORTADO\n18/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;21;;;IMPORTADO\n18/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n18/05/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n18/05/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n19/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n19/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n19/05/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n19/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;20;;;IMPORTADO\n19/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;29;;;IMPORTADO\n19/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n20/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n20/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n20/05/2026;;CEMIG;CAIXA TANQUINHO;8;;4;;;IMPORTADO\n20/05/2026;;EDP MOGI;CAIXA TANQUINHO;6;;20;;;IMPORTADO\n20/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;29;;;IMPORTADO\n20/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n20/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n21/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n21/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n21/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;20;;;IMPORTADO\n21/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;17;;;IMPORTADO\n21/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n21/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n22/05/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n22/05/2026;;EQUATORIAL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n22/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;24;;;IMPORTADO\n22/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n22/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n22/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n25/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n25/05/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n25/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;23;;;IMPORTADO\n25/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;24;;;IMPORTADO\n25/05/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n25/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n26/05/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n26/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;21;;;IMPORTADO\n26/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n26/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n27/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n27/05/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n27/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n27/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n27/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n28/05/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n28/05/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n28/05/2026;;EDP MOGI;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n28/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n28/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n29/05/2026;;ENEL;CAIXA TANQUINHO;2;;12;;;IMPORTADO\n29/05/2026;;EDP MOGI;CAIXA TANQUINHO;7;;17;;;IMPORTADO\n29/05/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;31;;;IMPORTADO\n29/05/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n01/06/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n01/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/06/2026;;EDP MOGI;CAIXA TANQUINHO;7;;22;;;IMPORTADO\n01/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n01/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n01/06/2026;;CPFL PAU;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n02/06/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n02/06/2026;;EQUATORIAL;CAIXA TANQUINHO;;;5;;;IMPORTADO\n02/06/2026;;EDP MOGI;CAIXA TANQUINHO;15;;34;;;IMPORTADO\n02/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;25;;;IMPORTADO\n02/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n02/06/2026;;CPFL PAU;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n03/06/2026;;EQUATORIAL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n03/06/2026;;EDP MOGI;CAIXA TANQUINHO;14;;34;;;IMPORTADO\n03/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;29;;;IMPORTADO\n03/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n03/06/2026;;CPFL PAU;CAIXA TANQUINHO;8;;5;;;IMPORTADO\n05/06/2026;;ENEL;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n05/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n05/06/2026;;EDP MOGI;CAIXA TANQUINHO;12;;31;;;IMPORTADO\n05/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;27;;;IMPORTADO\n05/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n06/06/2026;;EDP MOGI;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n08/06/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n08/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;33;;;IMPORTADO\n08/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;29;;;IMPORTADO\n08/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n08/06/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n09/06/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n09/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n09/06/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n09/06/2026;;EDP MOGI;CAIXA TANQUINHO;15;;48;;;IMPORTADO\n09/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;28;;;IMPORTADO\n09/06/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n10/06/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n10/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n10/06/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n10/06/2026;;EDP MOGI;CAIXA TANQUINHO;15;;44;;;IMPORTADO\n10/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;30;;;IMPORTADO\n10/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n10/06/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n11/06/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n11/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n11/06/2026;;EDP MOGI;CAIXA TANQUINHO;14;;33;;;IMPORTADO\n11/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;21;;;IMPORTADO\n11/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n11/06/2026;;CPFL PAU;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n12/06/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n12/06/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n12/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;31;;;IMPORTADO\n12/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;2;;8;;;IMPORTADO\n12/06/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n13/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n13/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;20;;;IMPORTADO\n15/06/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n15/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n15/06/2026;;CEMIG;CAIXA TANQUINHO;4;;2;;;IMPORTADO\n15/06/2026;;EDP MOGI;CAIXA TANQUINHO;14;;37;;;IMPORTADO\n15/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;21;;;IMPORTADO\n16/06/2026;;ENEL;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n16/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n16/06/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n16/06/2026;;EDP MOGI;CAIXA TANQUINHO;15;;46;;;IMPORTADO\n16/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;24;;;IMPORTADO\n16/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n16/06/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n17/06/2026;;ENEL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n17/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n17/06/2026;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n17/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;43;;;IMPORTADO\n17/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n17/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n17/06/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n18/06/2026;;ENEL;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n18/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n18/06/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n18/06/2026;;EDP MOGI;CAIXA TANQUINHO;14;;41;;;IMPORTADO\n18/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;8;;24;;;IMPORTADO\n18/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n18/06/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n19/06/2026;;ENEL;CAIXA TANQUINHO;2;;4;;;IMPORTADO\n19/06/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n19/06/2026;;EDP MOGI;CAIXA TANQUINHO;14;;38;;;IMPORTADO\n19/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;18;;;IMPORTADO\n19/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n22/06/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n22/06/2026;;EDP MOGI;CAIXA TANQUINHO;15;;45;;;IMPORTADO\n22/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;28;;;IMPORTADO\n23/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n23/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;39;;;IMPORTADO\n23/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;29;;;IMPORTADO\n23/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n23/06/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n24/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n24/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;17;;;IMPORTADO\n24/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;29;;;IMPORTADO\n25/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n25/06/2026;;EDP MOGI;CAIXA TANQUINHO;12;;39;;;IMPORTADO\n25/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n25/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n25/06/2026;;CPFL PAU;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n26/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;8;;;IMPORTADO\n26/06/2026;;EDP MOGI;CAIXA TANQUINHO;13;;43;;;IMPORTADO\n26/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n26/06/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n29/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;21;;;IMPORTADO\n30/06/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n30/06/2026;;EDP MOGI;CAIXA TANQUINHO;12;;42;;;IMPORTADO\n30/06/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n30/06/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/07/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n01/07/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/07/2026;;EDP MOGI;CAIXA TANQUINHO;13;;47;;;IMPORTADO\n01/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;28;;;IMPORTADO\n01/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/07/2026;;CPFL PAU;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n02/07/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n02/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;38;;;IMPORTADO\n02/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;29;;;IMPORTADO\n02/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n02/07/2026;;CPFL PAU;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n03/07/2026;;ENEL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n03/07/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n03/07/2026;;EDP MOGI;CAIXA TANQUINHO;13;;45;;;IMPORTADO\n03/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n03/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n04/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;40;;;IMPORTADO\n06/07/2026;;ENEL;CAIXA TANQUINHO;6;;10;;;IMPORTADO\n06/07/2026;;EQUATORIAL;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n06/07/2026;;EDP MOGI;CAIXA TANQUINHO;13;;41;;;IMPORTADO\n06/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;17;;;IMPORTADO\n06/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n07/07/2026;;ENEL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n07/07/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n07/07/2026;;EDP MOGI;CAIXA TANQUINHO;14;;44;;;IMPORTADO\n07/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;25;;;IMPORTADO\n07/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n07/07/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n08/07/2026;;ENEL;CAIXA TANQUINHO;5;;7;;;IMPORTADO\n08/07/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n08/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;44;;;IMPORTADO\n08/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;25;;;IMPORTADO\n08/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n08/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n09/07/2026;;ENEL;CAIXA TANQUINHO;4;;7;;;IMPORTADO\n09/07/2026;;EQUATORIAL;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n09/07/2026;;EDP MOGI;CAIXA TANQUINHO;8;;25;;;IMPORTADO\n09/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n10/07/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n10/07/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n10/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;41;;;IMPORTADO\n10/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n11/07/2026;;ENEL;CAIXA TANQUINHO;3;;12;;;IMPORTADO\n13/07/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n13/07/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n13/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;37;;;IMPORTADO\n13/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n13/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n13/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n14/07/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n14/07/2026;;EQUATORIAL;CAIXA TANQUINHO;6;;8;;;IMPORTADO\n14/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;38;;;IMPORTADO\n14/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;28;;;IMPORTADO\n14/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n14/07/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n15/07/2026;;ENEL;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n15/07/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n15/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;39;;;IMPORTADO\n15/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;27;;;IMPORTADO\n15/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n15/07/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n16/07/2026;;ENEL;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n16/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;46;;;IMPORTADO\n16/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;28;;;IMPORTADO\n16/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n16/07/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n17/07/2026;;ENEL;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n17/07/2026;;EDP MOGI;CAIXA TANQUINHO;8;;30;;;IMPORTADO\n17/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;28;;;IMPORTADO\n17/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n17/07/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n20/07/2026;;ENEL;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n20/07/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n20/07/2026;;EDP MOGI;CAIXA TANQUINHO;9;;28;;;IMPORTADO\n20/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;26;;;IMPORTADO\n20/07/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n20/07/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n21/07/2026;;ENEL;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n21/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n21/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;45;;;IMPORTADO\n21/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;29;;;IMPORTADO\n21/07/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n21/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n22/07/2026;;ENEL;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n22/07/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n22/07/2026;;EDP MOGI;CAIXA TANQUINHO;10;;46;;;IMPORTADO\n22/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;30;;;IMPORTADO\n22/07/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n22/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n23/07/2026;;ENEL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n23/07/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n23/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;40;;;IMPORTADO\n23/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;7;;29;;;IMPORTADO\n23/07/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n23/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n24/07/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n24/07/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n24/07/2026;;EDP MOGI;CAIXA TANQUINHO;9;;36;;;IMPORTADO\n24/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n24/07/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n24/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n27/07/2026;;ENEL;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n27/07/2026;;EQUATORIAL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n27/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;45;;;IMPORTADO\n27/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n27/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n28/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n28/07/2026;;EDP MOGI;CAIXA TANQUINHO;10;;42;;;IMPORTADO\n28/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;20;;;IMPORTADO\n28/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n28/07/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n29/07/2026;;ENEL;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n29/07/2026;;RGE;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n29/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n29/07/2026;;EDP MOGI;CAIXA TANQUINHO;11;;44;;;IMPORTADO\n29/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n29/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n29/07/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n30/07/2026;;ENEL;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n30/07/2026;;RGE;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n30/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n30/07/2026;;EDP MOGI;CAIXA TANQUINHO;12;;45;;;IMPORTADO\n30/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n30/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n30/07/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n31/07/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n31/07/2026;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n31/07/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n31/07/2026;;EDP MOGI;CAIXA TANQUINHO;10;;37;;;IMPORTADO\n31/07/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;25;;;IMPORTADO\n31/07/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n31/07/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n03/08/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n03/08/2026;;RGE;CAIXA TANQUINHO;5;;4;;;IMPORTADO\n03/08/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n03/08/2026;;EDP MOGI;CAIXA TANQUINHO;8;;17;;;IMPORTADO\n03/08/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;24;;;IMPORTADO\n04/08/2026;;ENEL;CAIXA TANQUINHO;4;;11;;;IMPORTADO\n04/08/2026;;EQUATORIAL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n04/08/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n04/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;34;;;IMPORTADO\n04/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n04/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n05/08/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n05/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;33;;;IMPORTADO\n05/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n05/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n06/08/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n06/08/2026;;EDP MOGI;CAIXA TANQUINHO;12;;46;;;IMPORTADO\n06/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n06/08/2026;;CPFL PAU;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n07/08/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n07/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;27;;;IMPORTADO\n07/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n07/08/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n10/08/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n10/08/2026;;RGE;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n10/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;37;;;IMPORTADO\n11/08/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n11/08/2026;;RGE;CAIXA TANQUINHO;5;;9;;;IMPORTADO\n11/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;39;;;IMPORTADO\n11/08/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n12/08/2026;;ENEL;CAIXA TANQUINHO;4;;8;;;IMPORTADO\n12/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;31;;;IMPORTADO\n12/08/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n13/08/2026;;ENEL;CAIXA TANQUINHO;5;;6;;;IMPORTADO\n13/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;35;;;IMPORTADO\n13/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n14/08/2026;;ENEL;CAIXA TANQUINHO;4;;6;;;IMPORTADO\n14/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;29;;;IMPORTADO\n17/08/2026;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n17/08/2026;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n17/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;36;;;IMPORTADO\n17/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n18/08/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n18/08/2026;;RGE;CAIXA TANQUINHO;6;;9;;;IMPORTADO\n18/08/2026;;EDP MOGI;CAIXA TANQUINHO;13;;42;;;IMPORTADO\n18/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;5;;;IMPORTADO\n18/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n19/08/2026;;ENEL;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n19/08/2026;;RGE;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n19/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;16;;;IMPORTADO\n19/08/2026;;CPFL PIRA;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n19/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n20/08/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n20/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;29;;;IMPORTADO\n20/08/2026;;CPFL PIRA;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n20/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n21/08/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n21/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;39;;;IMPORTADO\n21/08/2026;;CPFL PIRA;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n21/08/2026;;CPFL PAU;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n22/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;13;;;IMPORTADO\n24/08/2026;;ENEL;CAIXA TANQUINHO;;;4;;;IMPORTADO\n24/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;35;;;IMPORTADO\n24/08/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n24/08/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n25/08/2026;;ENEL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n25/08/2026;;EDP MOGI;CAIXA TANQUINHO;9;;36;;;IMPORTADO\n25/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n25/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n26/08/2026;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n26/08/2026;;EDP MOGI;CAIXA TANQUINHO;5;;30;;;IMPORTADO\n26/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n26/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n27/08/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n27/08/2026;;EDP MOGI;CAIXA TANQUINHO;5;;34;;;IMPORTADO\n27/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n27/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n28/08/2026;;ENEL;CAIXA TANQUINHO;2;;3;;;IMPORTADO\n28/08/2026;;CEMIG;CAIXA TANQUINHO;5;;5;;;IMPORTADO\n28/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;41;;;IMPORTADO\n28/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n28/08/2026;;CPFL PAU;CAIXA TANQUINHO;6;;3;;;IMPORTADO\n31/08/2026;;ENEL;CAIXA TANQUINHO;3;;11;;;IMPORTADO\n31/08/2026;;RGE;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n31/08/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n31/08/2026;;EDP MOGI;CAIXA TANQUINHO;10;;37;;;IMPORTADO\n31/08/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n01/09/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n01/09/2026;;RGE;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n01/09/2026;;CEMIG;CAIXA TANQUINHO;7;;7;;;IMPORTADO\n01/09/2026;;CPFL PAU;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n02/09/2026;;ENEL;CAIXA TANQUINHO;3;;1;;;IMPORTADO\n02/09/2026;;RGE;CAIXA TANQUINHO;4;;3;;;IMPORTADO\n02/09/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n02/09/2026;;EDP MOGI;CAIXA TANQUINHO;11;;37;;;IMPORTADO\n02/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n02/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n03/09/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n03/09/2026;;CEMIG;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n03/09/2026;;EDP MOGI;CAIXA TANQUINHO;10;;39;;;IMPORTADO\n03/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n03/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n04/09/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n04/09/2026;;CEMIG;CAIXA TANQUINHO;8;;8;;;IMPORTADO\n04/09/2026;;EDP MOGI;CAIXA TANQUINHO;11;;43;;;IMPORTADO\n04/09/2026;;CPFL PIRA;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n04/09/2026;;CPFL PAU;CAIXA TANQUINHO;5;;3;;;IMPORTADO\n08/09/2026;;ENEL;CAIXA TANQUINHO;2;;6;;;IMPORTADO\n08/09/2026;;CEMIG;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n08/09/2026;;EDP MOGI;CAIXA TANQUINHO;11;;31;;;IMPORTADO\n08/09/2026;;CPFL PAU;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n09/09/2026;;ENEL;CAIXA TANQUINHO;3;;6;;;IMPORTADO\n09/09/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n09/09/2026;;EDP MOGI;CAIXA TANQUINHO;9;;31;;;IMPORTADO\n09/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;15;;;IMPORTADO\n09/09/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n10/09/2026;;ENEL;CAIXA TANQUINHO;2;;6;;;IMPORTADO\n10/09/2026;;EDP MOGI;CAIXA TANQUINHO;8;;21;;;IMPORTADO\n10/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;19;;;IMPORTADO\n10/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n10/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;6;;;IMPORTADO\n11/09/2026;;ENEL;CAIXA TANQUINHO;1;;2;;;IMPORTADO\n11/09/2026;;CEMIG;CAIXA TANQUINHO;2;;2;;;IMPORTADO\n11/09/2026;;EDP MOGI;CAIXA TANQUINHO;;;27;;;IMPORTADO\n11/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;18;;;IMPORTADO\n11/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n11/09/2026;;CPFL PAU;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n14/09/2026;;ENEL;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n14/09/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n14/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;16;;;IMPORTADO\n15/09/2026;;ENEL;CAIXA TANQUINHO;3;;4;;;IMPORTADO\n15/09/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n15/09/2026;;EDP MOGI;CAIXA TANQUINHO;11;;39;;;IMPORTADO\n15/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;21;;;IMPORTADO\n15/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n15/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n16/09/2026;;ENEL;CAIXA TANQUINHO;3;;5;;;IMPORTADO\n16/09/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n16/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n16/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n17/09/2026;;ENEL;CAIXA TANQUINHO;3;;8;;;IMPORTADO\n17/09/2026;;RGE;CAIXA TANQUINHO;3;;2;;;IMPORTADO\n17/09/2026;;CEMIG;CAIXA TANQUINHO;3;;3;;;IMPORTADO\n17/09/2026;;EDP MOGI;CAIXA TANQUINHO;10;;40;;;IMPORTADO\n17/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;4;;17;;;IMPORTADO\n17/09/2026;;CPFL PIRA;CAIXA TANQUINHO;4;;4;;;IMPORTADO\n17/09/2026;;CPFL PAU;CAIXA TANQUINHO;6;;7;;;IMPORTADO\n16/09/2026;;EDP MOGI;CAIXA TANQUINHO;10;;35;;;IMPORTADO\n16/09/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;16;;;IMPORTADO\n01/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n01/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n01/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n02/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n02/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n03/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n03/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n03/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n06/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n06/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n06/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n07/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n07/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n08/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n09/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n09/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n10/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n10/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n10/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n13/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n13/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n13/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n13/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n14/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n14/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n14/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n15/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n15/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n15/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n15/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n16/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n16/10/2025;;EDP MOGI;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n16/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n16/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n17/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n17/10/2025;;RGE;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n17/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n17/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n20/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n20/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n20/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n21/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n21/10/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;9;;0;;;IMPORTADO\n21/10/2025;;CPFL PIRA;CAIXA TANQUINHO;2;;0;;;IMPORTADO\n21/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n22/10/2025;;ENEL;CAIXA TANQUINHO;4;;0;;;IMPORTADO\n22/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n23/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n24/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n27/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n28/10/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n03/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n04/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n05/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n06/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n07/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n10/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n11/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n11/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n12/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n13/11/2025;;CPFL PIRA;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n13/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n14/11/2025;;ENEL;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n14/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n17/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n18/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n19/11/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n20/11/2025;;ENEL;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n01/12/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n02/12/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n03/12/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n04/12/2025;;LIGHT;CAIXA TANQUINHO;3;;0;;;IMPORTADO\n15/12/2025;;RGE;CAIXA TANQUINHO;8;;0;;;IMPORTADO\n15/12/2025;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;5;;0;;;IMPORTADO\n04/08/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;6;;0;;;IMPORTADO\n10/08/2026;;EDP ESPIRITO SANTO;CAIXA TANQUINHO;10;;0;;;IMPORTADO\n29/08/2026;;EDP MOGI;CAIXA TANQUINHO;7;;0;;;IMPORTADO\n19/09/2026;11:42;EDP MOGI;CAIXA TANQUINHO;4;16;12;EQUIPE REDUZIDA;;Base Mogi Das Cruzes\n"}</script>
+<script id="fonte-api">window.CEO_API = {"url": "https://script.google.com/macros/s/AKfycbydcwGnB-3CEpaarQdxA1xRAGCg9YCEtQYWwK-QklC_eBkCyIHO5a8J4RgXjqWKVDBqPQ/exec", "token": "Painel123", "intervalo": 8};</script>
+<script>
+(function () {
+  "use strict";
+
+  /* Sonda: quando esta mesma página é aberta escondida dentro de outra (?chk=1), ela só entrega os dados
+     e a hora do arquivo para a página de fora e para. É assim que o painel confere se há dados novos,
+     inclusive quando o arquivo está aberto direto do disco (o navegador não deixa ler o arquivo por fetch). */
+  if (window.parent !== window && /[?&]chk=1(&|$)/.test(location.search)) {
+    parent.postMessage({ tipo: 'dados-ceo', t: new URLSearchParams(location.search).get('t'), dados: document.getElementById('dados-embutidos').textContent, mod: document.lastModified }, '*');
+    return;
+  }
+
+  /* ------------------------------------------------------------ helpers */
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const nf = new Intl.NumberFormat('pt-BR');
+  const n0 = v => nf.format(Math.round(v || 0));
+  const nf1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const n1 = v => nf1.format(v || 0);
+
+  function num(v) {
+    if (v == null || v === '') return 0;
+    const s = String(v).trim().replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+  function toDate(v) {
+    const s = String(v ?? '').trim();
+    let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+    m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    return null;
+  }
+  const key = d => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+  const fmtD = d => d ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : '—';
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+  function parseCSV(text) {
+    if (!text) return [];
+    const head = (text.split('\n')[0] || '');
+    const counts = { ';': 0, ',': 0, '\t': 0, '|': 0 };
+    let q = false;
+    for (const c of head) { if (c === '"') q = !q; else if (!q && c in counts) counts[c]++; }
+    const d = Object.keys(counts).reduce((a, b) => counts[b] > counts[a] ? b : a, ';');
+    const rows = []; let row = [], f = '', i = 0; q = false;
+    while (i < text.length) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === d) { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+      else f += c;
+      i++;
+    }
+    if (f !== '' || row.length) { row.push(f); rows.push(row); }
+    if (!rows.length) return [];
+    const hs = rows[0].map(h => norm(h).replace(/\s+/g, '_'));
+    return rows.slice(1).filter(r => r.some(c => (c || '').trim() !== ''))
+      .map(r => { const o = {}; hs.forEach((h, j) => o[h] = (r[j] ?? '').trim()); return o; });
+  }
+
+  const tag = (txt, cor) => `<span class="tag" style="--tg:${cor};--tg-bg:color-mix(in srgb,${cor} 14%,transparent);--tg-bd:color-mix(in srgb,${cor} 34%,transparent)"><i></i>${esc(txt)}</span>`;
+  const svg = (p, s = 15) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="${s}" height="${s}">${p}</svg>`;
+  const vazio = t => `<div class="vazio">${esc(t)}</div>`;
+
+  const I = {
+    fechamento: '<path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',
+    alertas: '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L14.7 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/>',
+    relatorios: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M8 13h8M8 17h5"/>',
+    producao: '<path d="M2 20h20V9l-6 4V9l-6 4V3H6l-4 6z"/>',
+    equipes: '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',
+  };
+
+  /* ------------------------------------------------------------ dados */
+  let MED = [], PRO = [];
+  let ABA_ATIVA = 'medidores';
+  const filtro = { q: '', base: '', mes: '', periodo: '30d', ord: 'data', dir: -1 };
+  const filtroP = { q: '', base: '', mes: '', periodo: '30d', produto: '', ord: 'data', dir: -1 };
+
+  /* Nome antigo do produto: linhas já gravadas como CAIXA TANQUINHO aparecem como BLINDAGEM,
+     sem precisar mexer na planilha (e as duas grafias nunca viram dois produtos). */
+  const PRODUTOS_ANTIGOS = { 'caixa tanquinho': 'BLINDAGEM' };
+  const produtoCanon = p => { const s = String(p || '').trim(); return PRODUTOS_ANTIGOS[norm(s)] || s.toUpperCase(); };
+
+  function prepFechamento(rows) {
+    rows.forEach(f => {
+      f._d = toDate(f.data); f._k = key(f._d); f._q = num(f.quantidade); f._meta = num(f.meta);
+      f._equipes = num(f.equipes);
+      f._base = String(f.base || '').toUpperCase().trim();
+      f._motivo = String(f.motivo || '').trim();
+      f._produto = produtoCanon(f.produto);
+    });
+    return rows;
+  }
+
+  function carregar() {
+    let emb = {};
+    try { emb = JSON.parse($('#dados-embutidos').textContent.trim() || '{}'); } catch (e) { emb = {}; }
+    MED = prepFechamento(parseCSV(emb.fechamento_bases || ''));
+    PRO = prepFechamento(parseCSV(emb.fechamento_producao || ''));
+    MED.push(...prepFechamento(EXTRA.med.map(r => ({ ...r }))));    // + o que foi importado de arquivo nesta tela
+    PRO.push(...prepFechamento(EXTRA.pro.map(r => ({ ...r }))));
+  }
+
+  /* ------------------------------------------------------------ importar / baixar CSV */
+  /* Linhas vindas de arquivo só existem nesta tela: não vão para a planilha e somem ao recarregar. */
+  const EXTRA = { med: [], pro: [] };
+  let RELATORIO_IMPORT = [];
+  let EXPORTAR = null;   // o que o botão "Baixar CSV" leva: { arquivo, cab, dados }
+
+  const chaveLinha = f => `${key(toDate(f.data))}|${norm(f.base)}|${norm(produtoCanon(f.produto))}`;
+  const LINHA_VAZIA = { data: '', hora: '', base: '', produto: '', equipes: '', meta: '', quantidade: '', motivo: '', observacao: '', gerente: '' };
+
+  function lerCsvImportado(nome, texto) {
+    const rows = parseCSV(texto);
+    if (!rows.length) return { nome, texto: 'arquivo vazio — nada importado', erro: true };
+    const cols = Object.keys(rows[0]);
+    if (!['data', 'base', 'quantidade'].every(c => cols.includes(c)))
+      return { nome, texto: 'não reconheci as colunas (preciso de data, base e quantidade) — nada importado', erro: true };
+    const pro = cols.includes('produto');                       // com "produto" = Blindagem; sem = Medidores
+    const alvo = pro ? EXTRA.pro : EXTRA.med;
+    const existentes = new Set([...(pro ? PRO : MED), ...alvo].map(chaveLinha));   // mesmo dia + base (+ produto) = já existe
+    const entram = []; let repetidas = 0, invalidas = 0;
+    rows.forEach(r => {
+      if (!toDate(r.data) || !String(r.base || '').trim()) { invalidas++; return; }
+      if (existentes.has(chaveLinha(r))) { repetidas++; return; }
+      entram.push({ ...LINHA_VAZIA, ...r, base: String(r.base).trim() });
+    });
+    alvo.push(...entram);
+    const partes = [`${n0(entram.length)} nova(s)`];
+    if (repetidas) partes.push(`${n0(repetidas)} já estavam no painel`);
+    if (invalidas) partes.push(`${n0(invalidas)} sem data ou base`);
+    return { nome, texto: `${pro ? 'Blindagem' : 'Medidores'}: ${partes.join(' · ')}` };
+  }
+
+  function decodificar(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('windows-1252').decode(buf); }   // o Excel em português salva assim
+  }
+
+  function importarArquivos(files) {
+    const lista = [...files].filter(f => /\.(csv|txt)$/i.test(f.name));
+    if (!lista.length) {
+      RELATORIO_IMPORT = [{ nome: 'Importar CSV', texto: 'escolha arquivos .csv (no Excel: Salvar como → CSV)', erro: true }];
+      renderAvisoImport(); return;
+    }
+    const relatorio = new Array(lista.length); let pend = lista.length;
+    const fim = () => { if (--pend === 0) { RELATORIO_IMPORT = relatorio; render(); } };
+    lista.forEach((f, i) => {
+      const r = new FileReader();
+      r.onload = () => { try { relatorio[i] = lerCsvImportado(f.name, decodificar(r.result)); } catch (e) { relatorio[i] = { nome: f.name, texto: 'não consegui ler este arquivo', erro: true }; } fim(); };
+      r.onerror = () => { relatorio[i] = { nome: f.name, texto: 'não consegui abrir este arquivo', erro: true }; fim(); };
+      r.readAsArrayBuffer(f);
+    });
+  }
+
+  function renderAvisoImport() {
+    const box = $('#avisoImport');
+    const temDados = EXTRA.med.length || EXTRA.pro.length;
+    if (!temDados && !RELATORIO_IMPORT.length) { box.innerHTML = ''; return; }
+    const linhas = RELATORIO_IMPORT.map(r => `<div class="mini"><span class="mini-l">${esc(r.nome)}</span><span class="mini-v" style="font-weight:600;white-space:normal;text-align:right;color:${r.erro ? 'var(--crit)' : 'var(--ink)'}">${esc(r.texto)}</span></div>`).join('');
+    box.innerHTML = `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--s1)"><div class="card-b">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+        <div><b>📥 Dados importados de arquivo</b> <span style="color:var(--muted)">${temDados ? `— Medidores: ${n0(EXTRA.med.length)} · Blindagem: ${n0(EXTRA.pro.length)} linha(s). Só aparecem nesta tela; não foram para a planilha.` : ''}</span></div>
+        <button class="btn" id="limparImport">${temDados ? 'Remover importados' : 'Fechar'}</button></div>${linhas}</div></div>`;
+    $('#limparImport').onclick = () => { EXTRA.med = []; EXTRA.pro = []; RELATORIO_IMPORT = []; render(); };
+  }
+
+  function csvTexto(cab, dados) {
+    const cel = v => { const s = String(v ?? ''); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    return [cab, ...dados].map(l => l.map(cel).join(';')).join('\r\n') + '\r\n';
+  }
+  function baixarVista() {
+    if (!EXPORTAR) return;
+    const blob = new Blob(['\uFEFF' + csvTexto(EXPORTAR.cab, EXPORTAR.dados)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `${EXPORTAR.arquivo}-${key(new Date())}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  }
+
+
+  const cores = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)', 'var(--s5)', 'var(--s6)'];
+
+  function refGeral() {
+    let ref = null;
+    [...MED, ...PRO].forEach(x => { if (x._d && (!ref || x._d > ref)) ref = x._d; });
+    if (!ref) ref = new Date();
+    ref.setHours(0, 0, 0, 0);
+    return ref;
+  }
+
+  /* --------------------------------------------- mês a mês por base */
+  /* bases que já não operam: ficam no histórico, mas nunca contam como "sem lançar hoje" */
+  const BASES_ENCERRADAS = ['LIGHT'];
+  const encerrada = b => BASES_ENCERRADAS.includes(String(b || '').toUpperCase().trim());
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const ym = d => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : '';
+  const rotMes = k => { const [y, m] = k.split('-'); return `${MESES[+m - 1]}/${y}`; };
+  let modoGeral = 'hoje';   // visão geral: 'hoje' | 'mes'
+  let baseGeral = '';       // visão geral, mês a mês: filtro de base ('' = todas)
+  let modoMes = 'qtd';   // 'qtd' = soma das quantidades · 'lanc' = nº de lançamentos
+
+  /* todos os meses entre o primeiro e o último lançamento (mês sem dado aparece vazio) */
+  function listaMeses(rows) {
+    const ds = rows.map(f => f._d).filter(Boolean);
+    if (!ds.length) return [];
+    let ini = ds[0], fim = ds[0];
+    ds.forEach(d => { if (d < ini) ini = d; if (d > fim) fim = d; });
+    const out = [];
+    let y = ini.getFullYear(), m = ini.getMonth() + 1;
+    const yf = fim.getFullYear(), mf = fim.getMonth() + 1;
+    while (y < yf || (y === yf && m <= mf)) {
+      out.push(`${y}-${String(m).padStart(2, '0')}`);
+      if (++m > 12) { m = 1; y++; }
+    }
+    return out;
+  }
+
+  function matrizMeses(rows, bases, meses, ref, cfg, corBase, filtroBase) {
+    if (!meses.length) return { tabela: '', chart: '' };
+    const cel = new Map();
+    rows.forEach(f => {
+      if (!f._d) return;
+      const k = ym(f._d) + '|' + f._base;
+      const c = cel.get(k) || { q: 0, n: 0, e: 0 };
+      c.q += f._q; c.n += 1; c.e += f._equipes || 0; cel.set(k, c);
+    });
+    const get = (m, b) => cel.get(m + '|' + b) || { q: 0, n: 0, e: 0 };
+    const somaCels = lista => lista.reduce((s, c) => ({ q: s.q + c.q, e: s.e + c.e, n: s.n + c.n }), { q: 0, e: 0, n: 0 });
+    /* 'media' = quantidade dividida pela soma de equipes daquele agrupamento — sempre soma antes de
+       dividir (nunca é a média das médias mensais), senão um mês com pouco movimento pesa igual a
+       um mês cheio. Sem nenhuma equipe registrada no agrupamento, devolve null (vira traço). */
+    const valorDe = a => modoMes === 'qtd' ? a.q : modoMes === 'eq' ? a.e : modoMes === 'lanc' ? a.n : (a.e > 0 ? a.q / a.e : null);
+    const val = (m, b) => valorDe(get(m, b));
+
+    const ordem = [...bases.filter(b => !encerrada(b)), ...bases.filter(encerrada)];
+    const maxCol = new Map(ordem.map(b => [b, Math.max(0, ...meses.map(m => val(m, b) || 0))]));
+    const totBase = new Map(ordem.map(b => [b, valorDe(somaCels(meses.map(m => get(m, b))))]));
+    const totGeral = valorDe(somaCels(ordem.flatMap(b => meses.map(m => get(m, b)))));
+    const refM = ym(ref);
+    const traco = '<span style="color:var(--muted)">—</span>';
+    const btn = (id, txt) => `<button class="btn seg ${modoMes === id ? 'on' : ''}" data-modo="${id}">${esc(txt)}</button>`;
+    const fmt = v => v == null ? traco : (modoMes === 'media' ? n1(v) : (v ? n0(v) : traco));
+
+    const cabecalho = ordem.map(b => `<th class="num" data-b="${esc(b)}" title="ver os lançamentos de ${esc(b)}">${esc(b)}${encerrada(b) ? '<span class="ar"> encerrada</span>' : ''}</th>`).join('');
+    const corpo = meses.map(m => {
+      const tot = valorDe(somaCels(ordem.map(b => get(m, b))));
+      const celulas = ordem.map(b => {
+        const v = val(m, b), vv = v || 0, mx = maxCol.get(b) || 0;
+        const calor = vv && mx ? `background:color-mix(in srgb,var(--s1) ${Math.max(6, Math.round(vv / mx * 40))}%,transparent)` : '';
+        return `<td class="num" data-m="${m}" data-b="${esc(b)}" style="${calor}">${fmt(v)}</td>`;
+      }).join('');
+      return `<tr class="${m === refM ? 'ref' : ''}"><td class="mes" data-m="${m}">${esc(rotMes(m))}${m === refM ? ' <span class="ar">referência</span>' : ''}</td>${celulas}<td class="num tot" data-m="${m}">${fmt(tot)}</td></tr>`;
+    }).join('');
+    const notaTotal = modoMes === 'media' ? ' <span class="nota-inline">média do período — não é a soma dos meses</span>' : '';
+    const rodape = `<tr class="fim${modoMes === 'media' ? ' fim-media' : ''}"><td class="mes" data-limpar="1">Total${notaTotal}</td>${ordem.map(b => `<td class="num" data-b="${esc(b)}">${fmt(totBase.get(b))}</td>`).join('')}<td class="num tot" data-limpar="1">${fmt(totGeral)}</td></tr>`;
+
+    const subtitulo = modoMes === 'qtd' ? esc(cfg.colQtd)
+      : modoMes === 'eq' ? 'equipes (soma das equipes de cada dia)'
+      : modoMes === 'media' ? `${esc(cfg.colQtd.toLowerCase())} por equipe (média)`
+      : 'lançamentos';
+    const notaMedia = modoMes === 'media' ? ' Sem equipe registrada naquele mês para aquela base, aparece um traço.' : '';
+
+    const tabela = `<div class="card" id="matriz">
+      <div class="card-h"><span class="card-t">Mês a mês por base</span><span class="card-s">${subtitulo} · todos os meses</span>
+        <span style="margin-left:auto;display:flex;gap:6px">${btn('qtd', cfg.colQtd)}${btn('eq', 'Equipes')}${btn('media', 'Média')}${btn('lanc', 'Lançamentos')}</span></div>
+      <div style="overflow:auto"><table class="mat"><thead><tr><th>Mês</th>${cabecalho}<th class="num">Total</th></tr></thead>
+        <tbody>${corpo}${rodape}</tbody></table></div>
+      <div class="mat-nota">Equipes = soma das equipes de cada dia (ex.: 5 equipes em 4 dias = 20).${notaMedia} Clique num valor, mês ou base para ver os lançamentos na tabela abaixo.</div>
+    </div>`;
+
+    return { tabela, chart: graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) };
+  }
+
+  /* Gráfico de barras: um grupo por mês, uma barra por base — sempre em quantidade por equipe
+     (a "Média" da tabela acima), independente de qual dos 4 modos está selecionado ali. */
+function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
+    /* Com uma base escolhida no filtro (acima da tabela de lançamentos), o gráfico foca só nela —
+       fica bem mais fácil de ler quando há muitos meses. Sem filtro, mostra todas agrupadas. */
+    const foco = filtroBase && ordem.includes(filtroBase) ? filtroBase : null;
+    const basesComDado = (foco ? [foco] : ordem).filter(b => meses.some(m => get(m, b).e > 0));
+    if (!basesComDado.length) {
+      return `<div class="card"><div class="card-h"><span class="card-t">Produtividade média por mês</span></div>
+        <div class="card-b">${vazio(foco ? `nenhuma equipe registrada ainda para ${esc(foco)}` : 'nenhuma equipe registrada ainda para calcular a média')}</div></div>`;
+    }
+    const valor = (m, b) => { const c = get(m, b); return c.e > 0 ? c.q / c.e : null; };
+    const maxVal = Math.max(0.1, ...meses.flatMap(m => basesComDado.map(b => valor(m, b) || 0)));
+    const eixoMax = maxVal * 1.15;
+
+    const unica = basesComDado.length === 1;
+    const GW = unica ? 54 : 96, GAP = unica ? 20 : 28;
+    const BW = unica ? 40 : Math.max(8, Math.min(26, (GW - (basesComDado.length - 1) * 3) / basesComDado.length));
+    const larguraGrupo = Math.max(GW, basesComDado.length * BW + (basesComDado.length - 1) * 3);
+    const startX = 48, altura = 190, baseY = altura, passo = larguraGrupo + GAP;
+    const largura = startX + meses.length * passo + 10;
+
+    const linhasGrade = [0, 0.25, 0.5, 0.75, 1].map(f => {
+      const y = altura - f * altura;
+      return `<line x1="${startX - 6}" y1="${y}" x2="${largura - 6}" y2="${y}" stroke="var(--border)" stroke-dasharray="2,3"/>
+        <text x="${startX - 10}" y="${y + 3}" text-anchor="end" font-size="9" fill="var(--muted)">${n1(f * eixoMax)}</text>`;
+    }).join('');
+
+    /* faixas claras alternadas atrás de cada mês, pra olho acompanhar a coluna mesmo rolando de lado */
+    const zebra = meses.map((m, i) => {
+      const gx = startX + i * passo;
+      const cor = m === refM ? 'color-mix(in srgb,var(--accent) 14%,transparent)' : (i % 2 ? 'var(--surface-2)' : 'transparent');
+      return `<rect x="${gx - GAP / 2}" y="0" width="${passo}" height="${altura}" fill="${cor}"/>`;
+    }).join('');
+
+    let x = startX;
+    const grupos = meses.map(m => {
+      const gx = x; x += passo;
+      const barras = basesComDado.map((b, i) => {
+        const v = valor(m, b);
+        if (!v) return '';
+        const bx = gx + i * (BW + 3), h = Math.max(1, Math.round((v / eixoMax) * altura));
+        const rotulo = unica ? `<text x="${bx + BW / 2}" y="${altura - h - 5}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--ink)">${n1(v)}</text>` : '';
+        return `<rect x="${bx}" y="${altura - h}" width="${BW}" height="${h}" rx="2" fill="${corBase.get(b) || 'var(--s1)'}"><title>${esc(b)} — ${esc(rotMes(m))}: ${n1(v)}</title></rect>${rotulo}`;
+      }).join('');
+      const cx = gx + larguraGrupo / 2;
+      return `${barras}<text x="${cx}" y="${baseY + 12}" text-anchor="end" font-size="10" ${m === refM ? 'font-weight="700" fill="var(--ink)"' : 'fill="var(--muted)"'} transform="rotate(-35 ${cx} ${baseY + 12})">${esc(rotMes(m))}${m === refM ? ' •' : ''}</text>`;
+    }).join('');
+
+    const legenda = unica ? '' : `<div style="padding:0 13px 12px;font-size:10px;display:flex;flex-wrap:wrap">${basesComDado.map(b => `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px">
+        <span style="width:9px;height:9px;border-radius:2px;background:${corBase.get(b) || 'var(--s1)'};display:inline-block"></span>${esc(b)}</span>`).join('')}</div>`;
+
+    return `<div class="card">
+      <div class="card-h"><span class="card-t">Produtividade média por mês</span><span class="card-s">${esc(cfg.colQtd.toLowerCase())} por equipe${foco ? ' · ' + esc(foco) : ' · uma barra por base'}</span></div>
+      <div style="overflow-x:auto"><svg viewBox="0 0 ${largura} ${baseY + 46}" style="width:${Math.max(360, largura)}px;max-width:none;height:${baseY + 46}px;display:block" xmlns="http://www.w3.org/2000/svg">
+        ${zebra}
+        ${linhasGrade}
+        <line x1="${startX - 6}" y1="${altura}" x2="${largura - 6}" y2="${altura}" stroke="var(--border-2)"/>
+        ${grupos}
+      </svg></div>
+      ${legenda}
+      <div class="mat-nota">Cada barra é a média de ${esc(cfg.colQtd.toLowerCase())} por equipe naquele mês.${foco ? ' Escolha "Todas as bases" no filtro acima da tabela para comparar todas de novo.' : ' Escolha uma base no filtro acima da tabela para ver só ela, com o gráfico bem mais largo.'}</div>
+    </div>`;
+  }
+
+    /* --------------------------------------------- visão genérica "por base" */
+  /* Serve tanto pra Medidores (fechamento_bases) quanto pra Blindagem
+     (fechamento_producao) — as duas abas têm a mesma cara: uma linha por
+     base/dia, com meta, quantidade e motivo opcional. */
+  function paginaFechamento(rows, ref, filtroObj, cfg) {
+    const refK = key(ref);
+    const bases = [...new Set(rows.map(f => f._base))].filter(Boolean).sort();
+    const corBase = new Map(bases.map((b, i) => [b, cores[i % cores.length]]));
+
+    const d30 = addDays(ref, -29);
+    const noPeriodo = rows.filter(f => f._d && f._d >= d30);
+    const hoje = rows.filter(f => f._k === refK);
+    const baseHoje = new Set(hoje.map(f => f._base));
+    const semHoje = bases.filter(b => !baseHoje.has(b) && !encerrada(b));
+    const comMotivo30 = noPeriodo.filter(f => f._motivo);
+    const totalHoje = hoje.reduce((s, f) => s + f._q, 0);
+    const doMes = rows.filter(f => f._d && f._d.getMonth() === ref.getMonth() && f._d.getFullYear() === ref.getFullYear());
+    const totalMes = doMes.reduce((s, f) => s + f._q, 0);
+    const equipesMes = doMes.reduce((s, f) => s + (f._equipes || 0), 0);
+    const diasMes = new Set(doMes.map(f => f._k)).size || 1;
+    const porDia = (Math.round(equipesMes / diasMes * 10) / 10).toLocaleString('pt-BR');
+
+    let linhas = rows;
+    if (filtroObj.q) { const q = norm(filtroObj.q); linhas = linhas.filter(x => norm(x.base + x.motivo + x.observacao + x.gerente).includes(q)); }
+    if (filtroObj.base) linhas = linhas.filter(x => x._base === filtroObj.base);
+    if (filtroObj.mes) linhas = linhas.filter(x => x._d && ym(x._d) === filtroObj.mes);
+    linhas = [...linhas].sort((a, b) => {
+      let x = filtroObj.ord === 'data' ? (a._d || 0) : filtroObj.ord === '_q' ? a._q : a[filtroObj.ord];
+      let y = filtroObj.ord === 'data' ? (b._d || 0) : filtroObj.ord === '_q' ? b._q : b[filtroObj.ord];
+      if (typeof x === 'string') { x = norm(x); y = norm(y); }
+      return (x > y ? 1 : x < y ? -1 : 0) * filtroObj.dir;
+    });
+
+    const camposCsv = cfg.comProduto
+      ? ['data', 'hora', 'base', 'produto', 'equipes', 'meta', 'quantidade', 'motivo', 'observacao', 'gerente']
+      : ['data', 'hora', 'base', 'equipes', 'meta', 'quantidade', 'motivo', 'observacao', 'gerente'];
+    EXPORTAR = {
+      arquivo: cfg.arquivo + (filtroObj.base ? '-' + norm(filtroObj.base).replace(/\s+/g, '-') : '') + (filtroObj.mes ? '-' + filtroObj.mes : ''),
+      cab: camposCsv, dados: linhas.map(f => camposCsv.map(c => c === 'produto' ? (f._produto || '') : (f[c] ?? ''))),
+    };
+
+    const cols = [
+      { k: 'data', t: 'Data' },
+      { k: 'base', t: 'Base', r: x => tag(x.base, corBase.get(x._base) || 'var(--s1)') },
+      { k: 'equipes', t: 'Equipes', num: 1, r: x => n0(x._equipes) },
+      { k: 'meta', t: 'Meta', num: 1, r: x => x._meta ? n0(x._meta) : '—' },
+      { k: '_q', t: cfg.colQtd, num: 1, r: x => `<b>${n0(x._q)}</b>` },
+      { k: 'pct', t: '% meta', num: 1, r: x => { if (!x._meta) return '—'; const v = Math.round(x._q / x._meta * 100);
+          return tag(v + '%', v >= 100 ? 'var(--good)' : v >= 70 ? 'var(--warn)' : 'var(--crit)'); } },
+      { k: 'motivo', t: 'Motivo', r: x => x.motivo ? tag(x.motivo, 'var(--warn)') : '—' },
+      { k: 'observacao', t: 'Observação' }, { k: 'gerente', t: 'Gerente' }, { k: 'hora', t: 'Hora' },
+    ];
+
+    const meses = listaMeses(rows);
+    const matrizObj = matrizMeses(rows, bases, meses, ref, cfg, corBase, filtroObj.base);
+
+    /* cartão de barras por base: últimos 30 dias (padrão), um mês qualquer ou tudo */
+    if (filtroObj.periodo !== '30d' && filtroObj.periodo !== 'tudo' && !meses.includes(filtroObj.periodo)) filtroObj.periodo = '30d';
+    const refM = ym(ref);
+    const rotPeriodo = filtroObj.periodo === '30d' ? 'últimos 30 dias' : filtroObj.periodo === 'tudo' ? 'todo o período' : rotMes(filtroObj.periodo);
+    const rowsBarra = filtroObj.periodo === '30d' ? noPeriodo
+      : filtroObj.periodo === 'tudo' ? rows
+      : rows.filter(f => f._d && ym(f._d) === filtroObj.periodo);
+    const porBase = bases.map(b => ({ base: b, total: rowsBarra.filter(f => f._base === b).reduce((s, f) => s + f._q, 0) }))
+      .filter(p => p.total > 0 || !encerrada(p.base))
+      .sort((a, b) => b.total - a.total);
+    const topTotal = porBase[0]?.total || 1;
+    const totalBarra = porBase.reduce((s, p) => s + p.total, 0);
+    const opPeriodo = (v, txt) => `<option value="${v}" ${v === filtroObj.periodo ? 'selected' : ''}>${esc(txt)}</option>`;
+    const opcoesPeriodo = opPeriodo('30d', 'Últimos 30 dias')
+      + [...meses].reverse().map(m => opPeriodo(m, rotMes(m) + (m === refM ? ' (este mês)' : ''))).join('')
+      + opPeriodo('tudo', 'Tudo');
+
+    const html = !rows.length ? vazio(cfg.vazioMsg) : `
+      <div class="kpis">
+        <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s1) 16%,transparent);color:var(--s1)">${svg(cfg.icon, 18)}</div>
+          <div><div class="kpi-l">${cfg.kpiHoje}</div><div class="kpi-v">${n0(totalHoje)}</div></div></div>
+        <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,${semHoje.length ? 'var(--warn)' : 'var(--good)'} 16%,transparent);color:${semHoje.length ? 'var(--warn)' : 'var(--good)'}">${svg(I.alertas, 18)}</div>
+          <div><div class="kpi-l">Bases sem lançar hoje</div><div class="kpi-v">${n0(semHoje.length)}</div></div></div>
+        <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--serious) 16%,transparent);color:var(--serious)">${svg(I.relatorios, 18)}</div>
+          <div><div class="kpi-l">Justificativas (30d)</div><div class="kpi-v">${n0(comMotivo30.length)}</div></div></div>
+        <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s3) 16%,transparent);color:var(--s3)">${svg(I.producao, 18)}</div>
+          <div><div class="kpi-l">Total no mês</div><div class="kpi-v">${n0(totalMes)}</div></div></div>
+        <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s2) 16%,transparent);color:var(--s2)">${svg(I.equipes, 18)}</div>
+          <div><div class="kpi-l">Equipes no mês</div><div class="kpi-v">${n0(equipesMes)}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:1px">soma dos dias · ${porDia} por dia</div></div></div>
+      </div>
+
+      ${semHoje.length ? `<div class="card warnbox"><div class="card-b">
+        <span style="color:var(--warn)">${svg(I.alertas, 15)}</span><b>Ainda não fecharam hoje:</b>
+        ${semHoje.map(b => tag(b, corBase.get(b) || 'var(--warn)')).join(' ')}
+      </div></div>` : ''}
+
+      <div class="card"><div class="card-h"><span class="card-t">${cfg.tituloBarra}</span><span class="card-s">${esc(rotPeriodo)} · total ${n0(totalBarra)}</span>
+        <span style="margin-left:auto"><span class="field"><select id="${cfg.idPeriodoSel}">${opcoesPeriodo}</select></span></span></div>
+        <div class="card-b">${porBase.map(p => `<div class="hbar">
+            <span class="hbar-n">${esc(p.base)}</span><span class="hbar-v"><b>${n0(p.total)}</b></span>
+            <span class="hbar-tr"><span class="hbar-fl" style="width:${topTotal ? Math.round(p.total / topTotal * 100) : 0}%;background:${corBase.get(p.base)}"></span></span></div>`).join('') || vazio('sem lançamentos no período')}
+        </div></div>
+
+      ${matrizObj.tabela}
+
+      ${matrizObj.chart}
+
+      ${comMotivo30.length ? `<div class="card"><div class="card-h"><span class="card-t">Justificativas recentes</span><span class="card-s">últimos 30 dias</span></div>
+        <div class="card-b">${comMotivo30.sort((a, b) => (b._d || 0) - (a._d || 0)).slice(0, 12).map(j => `
+          <div class="mini"><span class="mini-l">${tag(j.base, corBase.get(j._base) || 'var(--s1)')} ${esc(j.data)} — ${esc(j.motivo)}${j.observacao ? ' · ' + esc(j.observacao) : ''}</span>
+          <span class="mini-v">${esc(j.gerente || '')}</span></div>`).join('')}</div></div>` : ''}
+
+      <div class="bar">
+        <div class="field">${svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>', 13)}<input id="${cfg.idBusca}" placeholder="Buscar base, motivo, gerente…" value="${esc(filtroObj.q)}" style="width:220px"></div>
+        <div class="field"><select id="${cfg.idBaseSel}"><option value="">Todas as bases</option>${bases.map(b => `<option value="${esc(b)}" ${b === filtroObj.base ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></div>
+        <div class="field"><select id="${cfg.idMesSel}"><option value="">Todos os meses</option>${meses.map(m => `<option value="${m}" ${m === filtroObj.mes ? 'selected' : ''}>${esc(rotMes(m))}</option>`).join('')}</select></div>
+      </div>
+      <div class="tbl-wrap" id="tblTopo"><table>
+        <thead><tr>${cols.map(c => `<th data-k="${c.k}" class="${c.num ? 'num' : ''}">${esc(c.t)}${filtroObj.ord === c.k ? `<span class="ar">${filtroObj.dir > 0 ? '▲' : '▼'}</span>` : ''}</th>`).join('')}</tr></thead>
+        <tbody>${linhas.map(r => `<tr>${cols.map(c => `<td class="${c.num ? 'num' : ''}">${c.r ? c.r(r) : esc(r[c.k] ?? '—')}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}">${vazio('nenhum registro encontrado')}</td></tr>`}</tbody>
+      </table></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">${n0(linhas.length)} de ${n0(rows.length)} registros · soma ${n0(linhas.reduce((s, x) => s + x._q, 0))} · equipes ${n0(linhas.reduce((s, x) => s + (x._equipes || 0), 0))}</div>
+    `;
+
+    $('#main').innerHTML = html;
+    if (!rows.length) return;
+
+    const fq = $('#' + cfg.idBusca); if (fq) fq.oninput = () => { filtroObj.q = fq.value; render(); focarFim('#' + cfg.idBusca); };
+    const fb = $('#' + cfg.idBaseSel); if (fb) fb.onchange = () => { filtroObj.base = fb.value; render(); };
+    const fm = $('#' + cfg.idMesSel); if (fm) fm.onchange = () => { filtroObj.mes = fm.value; render(); };
+    const fpe = $('#' + cfg.idPeriodoSel); if (fpe) fpe.onchange = () => { filtroObj.periodo = fpe.value; render(); };
+    document.querySelectorAll('[data-modo]').forEach(b => b.onclick = () => { modoMes = b.dataset.modo; render(); });
+    document.querySelectorAll('#matriz [data-m], #matriz [data-b], #matriz [data-limpar]').forEach(el => el.onclick = () => {
+      if (el.dataset.limpar) { filtroObj.mes = ''; filtroObj.base = ''; }
+      else { filtroObj.mes = el.dataset.m || ''; filtroObj.base = el.dataset.b || ''; }
+      render();
+      const alvo = $('#tblTopo'); if (alvo && alvo.scrollIntoView) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.querySelectorAll('thead th[data-k]').forEach(th => th.onclick = () => {
+      const k = th.dataset.k;
+      if (filtroObj.ord === k) filtroObj.dir *= -1; else { filtroObj.ord = k; filtroObj.dir = 1; }
+      render();
+    });
+  }
+
+  function focarFim(sel) { const n = $(sel); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+
+  /* ------------------------------------------------------------ medidores */
+  function renderMedidores(ref) {
+    $('#pageTitle').textContent = 'Fechamento de medidores por base';
+    $('#subTitle').textContent = MED.length
+      ? `${MED.length} lançamento(s) na base · referência ${fmtD(ref)}`
+      : 'nenhum lançamento recebido ainda';
+    paginaFechamento(MED, ref, filtro, {
+      icon: I.fechamento, colQtd: 'Medidores', kpiHoje: 'Medidores hoje',
+      tituloBarra: 'Medidores trocados por base',
+      vazioMsg: 'nenhum fechamento recebido ainda — assim que a primeira base lançar, os dados aparecem aqui automaticamente',
+      idBusca: 'fq', idBaseSel: 'fbase', idMesSel: 'fmes', idPeriodoSel: 'fper', arquivo: 'medidores',
+    });
+  }
+
+  /* ------------------------------------------------------------ blindagem */
+  function renderProducao(ref) {
+    $('#pageTitle').textContent = 'Blindagem por base';
+
+    const produtos = [...new Set(PRO.map(p => p._produto))].filter(Boolean).sort();
+    if (produtos.length && (!filtroP.produto || !produtos.includes(filtroP.produto))) {
+      filtroP.produto = produtos.find(p => norm(p).includes('blindagem')) || produtos[0];
+    }
+    const rows = filtroP.produto ? PRO.filter(p => p._produto === filtroP.produto) : PRO;
+
+    $('#subTitle').textContent = rows.length
+      ? `${rows.length} lançamento(s) na base · referência ${fmtD(ref)}`
+      : 'nenhum lançamento de produção recebido ainda';
+
+    const seletor = produtos.length > 1
+      ? `<div class="bar"><div class="field"><select id="fprod">${produtos.map(p => `<option value="${esc(p)}" ${p === filtroP.produto ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div></div>`
+      : '';
+
+    paginaFechamento(rows, ref, filtroP, {
+      icon: I.producao, colQtd: 'Blindagens', kpiHoje: 'Blindagens hoje',
+      tituloBarra: 'Blindagem por base',
+      vazioMsg: 'nenhum lançamento de Blindagem recebido ainda',
+      idBusca: 'fqp', idBaseSel: 'fbasep', idMesSel: 'fmesp', idPeriodoSel: 'fperp', arquivo: 'blindagem', comProduto: true,
+    });
+
+    if (seletor && rows.length) $('#main').insertAdjacentHTML('afterbegin', seletor);
+    const fprod = $('#fprod'); if (fprod) fprod.onchange = () => { filtroP.produto = fprod.value; render(); };
+  }
+
+  /* ------------------------------------------------------------ visão geral: mês a mês (as duas frentes) */
+  function geralMesAMes(ref) {
+    const meses = listaMeses([...MED, ...PRO]);
+    if (!meses.length) return vazio('nenhum lançamento recebido ainda');
+    const agrupa = rows => {
+      const m = new Map();
+      rows.forEach(f => {
+        if (!f._d || (baseGeral && f._base !== baseGeral)) return;
+        const k = ym(f._d), c = m.get(k) || { q: 0, e: 0, n: 0 };
+        c.q += f._q; c.e += f._equipes || 0; c.n += 1; m.set(k, c);
+      });
+      return m;
+    };
+    const med = agrupa(MED), pro = agrupa(PRO);
+    const g = (m, k) => m.get(k) || { q: 0, e: 0, n: 0 };
+    const maxMed = Math.max(1, ...meses.map(k => g(med, k).q));
+    const maxPro = Math.max(1, ...meses.map(k => g(pro, k).q));
+    const refM = ym(ref);
+    const traco = '<span style="color:var(--muted)">—</span>';
+    const barra = (v, mx, cor) => { const p = Math.round(v / mx * 100); return v ? `background:linear-gradient(90deg,color-mix(in srgb,${cor} 26%,transparent) ${p}%,transparent ${p}%)` : ''; };
+    const td = (ir, m, v, estilo = '') => `<td class="num" data-ir="${ir}" data-m="${m}" style="${estilo}">${v ? n0(v) : traco}</td>`;
+
+    const linhas = meses.map(m => {
+      const a = g(med, m), b = g(pro, m);
+      return `<tr class="${m === refM ? 'ref' : ''}"><td class="mes">${esc(rotMes(m))}${m === refM ? ' <span class="ar">referência</span>' : ''}</td>
+        ${td('medidores', m, a.q, barra(a.q, maxMed, 'var(--s1)'))}${td('medidores', m, a.e)}${td('medidores', m, a.n)}
+        ${td('producao', m, b.q, barra(b.q, maxPro, 'var(--s3)'))}${td('producao', m, b.e)}${td('producao', m, b.n)}</tr>`;
+    }).join('');
+    const soma = (mapa, campo) => meses.reduce((s, k) => s + g(mapa, k)[campo], 0);
+    const fim = `<tr class="fim"><td class="mes">Total</td>
+        ${td('medidores', '', soma(med, 'q'))}${td('medidores', '', soma(med, 'e'))}${td('medidores', '', soma(med, 'n'))}
+        ${td('producao', '', soma(pro, 'q'))}${td('producao', '', soma(pro, 'e'))}${td('producao', '', soma(pro, 'n'))}</tr>`;
+
+    EXPORTAR = {
+      arquivo: 'visao-geral-mes-a-mes' + (baseGeral ? '-' + norm(baseGeral).replace(/\s+/g, '-') : ''),
+      cab: ['mes', 'medidores_trocados', 'medidores_equipes', 'medidores_lancamentos', 'blindagens', 'blindagens_equipes', 'blindagens_lancamentos'],
+      dados: [...meses.map(m => { const a = g(med, m), b = g(pro, m); return [m, a.q, a.e, a.n, b.q, b.e, b.n]; }),
+        ['total', soma(med, 'q'), soma(med, 'e'), soma(med, 'n'), soma(pro, 'q'), soma(pro, 'e'), soma(pro, 'n')]],
+    };
+
+    return `<div class="card" id="geralMeses">
+      <div class="card-h"><span class="card-t">Mês a mês</span><span class="card-s">${baseGeral ? esc(baseGeral) : 'todas as bases'} · Medidores e Blindagem</span></div>
+      <div style="overflow:auto"><table class="mat">
+        <thead><tr><th></th><th class="grp" colspan="3">📟 Medidores</th><th class="grp" colspan="3">📦 Blindagem</th></tr>
+          <tr><th>Mês</th><th class="num">Trocados</th><th class="num">Equipes</th><th class="num">Lanç.</th><th class="num">Blindagens</th><th class="num">Equipes</th><th class="num">Lanç.</th></tr></thead>
+        <tbody>${linhas}${fim}</tbody></table></div>
+      <div class="mat-nota">Equipes = soma das equipes de cada dia · Lanç. = número de lançamentos. Clique num valor para abrir o detalhe daquele mês na aba da frente.</div>
+    </div>`;
+  }
+
+  /* ------------------------------------------------------------ visão geral (as duas juntas) */
+  function renderGeral(ref) {
+    $('#pageTitle').textContent = 'Visão geral';
+    $('#subTitle').textContent = `Medidores e Blindagem lado a lado · referência ${fmtD(ref)}`;
+
+    const refK = key(ref);
+    const bases = [...new Set(MED.map(f => f._base))].filter(Boolean);
+    const hojeMed = MED.filter(f => f._k === refK);
+    const baseHojeMed = new Set(hojeMed.map(f => f._base));
+    const semHojeMed = bases.filter(b => !baseHojeMed.has(b) && !encerrada(b));
+    const totalHojeMed = hojeMed.reduce((s, f) => s + f._q, 0);
+    const comMetaMed = hojeMed.filter(f => f._meta);
+    const pctMedioMed = comMetaMed.length ? Math.round(comMetaMed.reduce((s, f) => s + f._q / f._meta, 0) / comMetaMed.length * 100) : null;
+
+    const basesProd = [...new Set(PRO.map(p => p._base))].filter(Boolean);
+    const hojeProd = PRO.filter(p => p._k === refK);
+    const baseHojeProd = new Set(hojeProd.map(p => p._base));
+    const semHojeProd = basesProd.filter(b => !baseHojeProd.has(b) && !encerrada(b));
+    const totalHojeProd = hojeProd.reduce((s, p) => s + p._q, 0);
+    const comMetaProd = hojeProd.filter(p => p._meta);
+    const pctMedioProd = comMetaProd.length ? Math.round(comMetaProd.reduce((s, p) => s + p._q / p._meta, 0) / comMetaProd.length * 100) : null;
+
+    const linha = (l, v) => `<div class="mini"><span class="mini-l">${esc(l)}</span><span class="mini-v" style="font-weight:700;color:var(--ink)">${v}</span></div>`;
+
+    const cartoesHoje = `
+      <div class="duas">
+        <div class="card">
+          <div class="card-b">
+            <h2>${svg(I.fechamento, 16)} Medidores</h2>
+            ${linha('Medidores hoje', n0(totalHojeMed))}
+            ${linha('Bases sem lançar hoje', semHojeMed.length ? tag(n0(semHojeMed.length), 'var(--warn)') : tag('0', 'var(--good)'))}
+            ${linha('% médio da meta hoje', pctMedioMed == null ? '—' : (pctMedioMed + '%'))}
+            ${linha('Bases cadastradas', n0(bases.filter(b => !encerrada(b)).length))}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-b">
+            <h2>${svg(I.producao, 16)} Blindagem</h2>
+            ${linha('Blindagens hoje', n0(totalHojeProd))}
+            ${linha('Bases sem lançar hoje', semHojeProd.length ? tag(n0(semHojeProd.length), 'var(--warn)') : tag('0', 'var(--good)'))}
+            ${linha('% médio da meta hoje', pctMedioProd == null ? '—' : (pctMedioProd + '%'))}
+            ${linha('Bases cadastradas', n0(basesProd.filter(b => !encerrada(b)).length))}
+          </div>
+        </div>
+      </div>
+      <div class="footnote" style="margin-top:2px">Use as abas acima para ver o detalhe de cada frente.</div>
+    `;
+
+    const todasBases = [...new Set([...MED, ...PRO].map(f => f._base))].filter(Boolean).sort();
+    const chave = (id, txt) => `<button class="btn seg ${modoGeral === id ? 'on' : ''}" data-geral="${id}">${txt}</button>`;
+    const topo = `<div class="bar" style="align-items:center;gap:10px">
+        <span style="display:flex;gap:6px">${chave('hoje', 'Hoje')}${chave('mes', 'Mês a mês')}</span>
+        ${modoGeral === 'mes' ? `<div class="field"><select id="gbase"><option value="">Todas as bases</option>${todasBases.map(b => `<option value="${esc(b)}" ${b === baseGeral ? 'selected' : ''}>${esc(b)}${encerrada(b) ? ' (encerrada)' : ''}</option>`).join('')}</select></div>` : ''}
+      </div>`;
+
+    if (modoGeral === 'mes') $('#subTitle').textContent = 'Mês a mês · Medidores e Blindagem · referência ' + fmtD(ref);
+    $('#main').innerHTML = topo + (modoGeral === 'mes' ? geralMesAMes(ref) : cartoesHoje);
+
+    document.querySelectorAll('[data-geral]').forEach(b => b.onclick = () => { modoGeral = b.dataset.geral; render(); });
+    const gb = $('#gbase'); if (gb) gb.onchange = () => { baseGeral = gb.value; render(); };
+    document.querySelectorAll('#geralMeses [data-ir]').forEach(el => el.onclick = () => {
+      const alvo = el.dataset.ir === 'medidores' ? filtro : filtroP;
+      alvo.mes = el.dataset.m || ''; alvo.base = baseGeral || '';
+      ABA_ATIVA = el.dataset.ir; render();
+      const t = $('#tblTopo'); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  function render() {
+    carregar();
+    EXPORTAR = null;
+    const ref = refGeral();
+    $('#topDate').textContent = fmtD(ref);
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === ABA_ATIVA));
+
+    if (ABA_ATIVA === 'medidores') renderMedidores(ref);
+    else if (ABA_ATIVA === 'producao') renderProducao(ref);
+    else renderGeral(ref);
+
+    renderAvisoImport();
+    $('#btnExport').disabled = !EXPORTAR;
+  }
+
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+    ABA_ATIVA = t.dataset.t;
+    render();
+  }));
+
+  /* ------------------------------------------------------------ atualização automática */
+  /* A cada 10 s a página abre uma cópia escondida de si mesma, lê os dados que estão no arquivo agora e,
+     se mudaram, troca e redesenha — sem recarregar, então a aba, os filtros e o que foi importado ficam. */
+  let ultimaAcao = 0, sonda = null, pendente = null;
+  ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev => addEventListener(ev, () => { ultimaAcao = Date.now(); }, { passive: true }));
+  const mexendo = () => Date.now() - ultimaAcao < 8000 || /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
+
+  function marcarAtualizado(mod) {
+    const d = new Date(mod), z = n => String(n).padStart(2, '0');
+    $('#topAtual').textContent = isNaN(d) ? '' : `atualizado ${z(d.getDate())}/${z(d.getMonth() + 1)} ${z(d.getHours())}:${z(d.getMinutes())}`;
+  }
+  function aplicarPendente(forcar) {
+    if (!pendente || (!forcar && mexendo())) return;                     // quem está mexendo não é interrompido: espera o próximo ciclo
+    const m = pendente; pendente = null;
+    $('#dados-embutidos').textContent = m.dados;
+    render(); if (m.mod) marcarAtualizado(m.mod);
+  }
+  function pedirDados() {
+    if (document.hidden || sonda) return;                   // aba escondida, ou já há uma conferência em andamento
+    sonda = document.createElement('iframe');
+    sonda.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden';
+    sonda.dataset.codigo = Date.now() + '-' + Math.random().toString(36).slice(2);
+    sonda.src = location.href.split('#')[0].split('?')[0] + '?chk=1&t=' + sonda.dataset.codigo;
+    document.body.appendChild(sonda);
+    const minha = sonda;
+    setTimeout(() => { if (sonda === minha) { sonda.remove(); sonda = null; } }, 15000);   // não respondeu: tenta no próximo ciclo
+  }
+  addEventListener('message', e => {
+    const m = e.data;
+    if (!sonda || !m || m.tipo !== 'dados-ceo' || m.t !== sonda.dataset.codigo) return;   // só a resposta da conferência em andamento
+    sonda.remove(); sonda = null;
+    try { JSON.parse(m.dados); } catch (err) { return; }    // arquivo ainda sendo gravado: espera o próximo ciclo
+    if (String(m.dados).trim() !== $('#dados-embutidos').textContent.trim()) pendente = m;
+    aplicarPendente();
+  });
+  /* ---- fonte online: o painel pergunta à planilha (via Apps Script) se mudou algo e, se mudou, busca de novo.
+     Vale em qualquer computador ou celular; nada depende do PC do bot estar ligado. */
+  const API = (window.CEO_API && window.CEO_API.url && window.CEO_API.token) ? window.CEO_API : null;
+  if (API) {
+    let versaoApi = null, ultimaCargaApi = 0, buscando = false, ultimoOk = 0, erroApi = '', ja_carregou = false;
+    const inicioPagina = Date.now();
+    const INTERVALO_API = Math.max(2, +API.intervalo || 8) * 1000;      // segundos entre conferências
+    const RECARGA_API = 60000;                                          // de tempos em tempos busca tudo, mesmo sem aviso (pega edição no meio da planilha)
+
+    function jsonp(url) {
+      return new Promise((resolve, reject) => {
+        const nome = '_ceo' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const s = document.createElement('script');
+        const limpar = () => { clearTimeout(t); delete window[nome]; s.remove(); };
+        const t = setTimeout(() => { limpar(); reject(new Error('tempo esgotado')); }, 20000);
+        window[nome] = d => { limpar(); resolve(d); };
+        s.onerror = () => { limpar(); reject(new Error('falha de rede')); };
+        s.src = url + '&callback=' + nome;
+        document.head.appendChild(s);
+      });
+    }
+    async function chamarApi(acao) {
+      const url = `${API.url}${API.url.includes('?') ? '&' : '?'}acao=${acao}&k=${encodeURIComponent(API.token)}&_=${Date.now()}`;
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('http ' + r.status);
+        return await r.json();
+      } catch (e) { return await jsonp(url); }                          // se o navegador barrar o fetch, tenta por JSONP
+    }
+    function marcarConexao(ok) {
+      const z = n => String(n).padStart(2, '0'), d = new Date(ultimoOk || Date.now());
+      const hora = `${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
+      $('#topAtual').innerHTML = ok
+        ? `<span style="color:#22a06b">●</span> ao vivo · ${hora}`
+        : `<span style="color:var(--crit)">●</span> ${erroApi === 'acesso negado' ? 'senha do painel não confere' : 'sem conexão'}${ultimoOk ? ' · dados de ' + hora : ''}`;
+    }
+    async function conferirApi(forcar) {
+      if (buscando || (document.hidden && !forcar)) return;
+      buscando = true;
+      try {
+        const v = await chamarApi('versao');
+        if (v.erro) throw new Error(v.erro);
+        if (forcar || v.v !== versaoApi || Date.now() - ultimaCargaApi > RECARGA_API) {
+          const d = await chamarApi('dados');
+          if (d.erro) throw new Error(d.erro);
+          versaoApi = d.v; ultimaCargaApi = Date.now();
+          const bloco = JSON.stringify({ fechamento_bases: d.fechamento_bases || '', fechamento_producao: d.fechamento_producao || '' });
+          if (bloco !== $('#dados-embutidos').textContent.trim()) { pendente = { dados: bloco }; aplicarPendente(!ja_carregou); }
+          ja_carregou = true;
+        }
+        ultimoOk = Date.now(); erroApi = ''; marcarConexao(true);
+      } catch (e) { erroApi = String((e && e.message) || e); marcarConexao(false); }
+      finally { buscando = false; }
+    }
+    $('#topAtual').textContent = 'conectando…';
+    const ciclo = () => {
+      aplicarPendente(); conferirApi(false);
+      setTimeout(ciclo, Date.now() - Math.max(ultimaAcao, inicioPagina) > 600000 ? Math.max(20000, INTERVALO_API) : INTERVALO_API);   // tela parada há 10 min: confere mais devagar
+    };
+    setTimeout(ciclo, INTERVALO_API);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) conferirApi(true); });
+    conferirApi(true);
+  } else {
+    setInterval(() => { aplicarPendente(); pedirDados(); }, 10000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) pedirDados(); });
+    marcarAtualizado(document.lastModified);
+  }
+
+  $('#btnImport').onclick = () => $('#filePick').click();
+  $('#filePick').onchange = e => { importarArquivos(e.target.files); e.target.value = ''; };
+  $('#btnExport').onclick = baixarVista;
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) importarArquivos(e.dataTransfer.files); });
+
+  render();
+})();
+</script>
+
+<button id="btn-tema" onclick="toggleTema()" style="
+position:fixed;right:20px;bottom:20px;z-index:9999;
+padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.2);
+background:#222;color:#fff;cursor:pointer;">
+🌙 Modo noturno
+</button>
+<script>
+function toggleTema(){
+  const html=document.documentElement;
+  const atual=html.getAttribute('data-theme') || 'dark';
+  const novo=atual==='dark'?'light':'dark';
+  html.setAttribute('data-theme',novo);
+  localStorage.setItem('temaFixar',novo);
+}
+(function(){
+ const t=localStorage.getItem('temaFixar');
+ if(t) document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+
+</body>
+</html>
