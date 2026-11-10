@@ -242,6 +242,7 @@ body.travado{overflow:hidden}
   <div class="tabs" id="tabs">
     <button class="tab" data-t="medidores">📟 Medidores</button>
     <button class="tab" data-t="producao">📦 Blindagem</button>
+    <button class="tab" data-t="rc" id="tabRC" style="display:none">🔧 Instalação de RC</button>
     <button class="tab" data-t="geral">🗂 Visão geral</button>
     <span class="sp"></span>
     <button class="btn" id="btnExport" title="Baixa em CSV a tabela que está na tela">⬇ Baixar CSV</button>
@@ -269,7 +270,8 @@ window.CEO_ACESSO = {
   "evandro": ["CPFL PIRA", "CPFL PAU"],
   "taylor":  ["RGE", "EQUATORIAL"],
   "elton":   ["ENEL"],
-  "alex":    ["CEMIG"]
+  "alex":    ["CEMIG"],
+  "helton":  ["ENEL CEARA"]
 };
 </script>
 <script id="fonte-api">window.CEO_API = {"url": "https://script.google.com/macros/s/AKfycbzra6d4v5x759r0w-7jaZ2yuNwKdj1MP1hWK3xHTKg0PyKqlMzH8t-iErnK5qRqA8uP4A/exec", "intervalo": 8};</script>
@@ -349,10 +351,11 @@ window.CEO_ACESSO = {
   };
 
   /* ------------------------------------------------------------ dados */
-  let MED = [], PRO = [];
+  let MED = [], PRO = [], RC = [];   // RC = Instalação de RC (aditivo da blindagem; hoje só a CEMIG lança)
   let ABA_ATIVA = 'medidores';
   const filtro = { q: '', base: '', mes: '', periodo: '', ord: 'data', dir: -1 };
   const filtroP = { q: '', base: '', mes: '', periodo: '', produto: '', ord: 'data', dir: -1 };
+  const filtroR = { q: '', base: '', mes: '', periodo: '', ord: 'data', dir: -1 };
   /* bases que o usuário logado pode ver: null = todas; senão, um Set com os nomes normalizados */
   let BASES_OK = null;
 
@@ -360,6 +363,9 @@ window.CEO_ACESSO = {
      sem precisar mexer na planilha (e as duas grafias nunca viram dois produtos). */
   const PRODUTOS_ANTIGOS = { 'caixa tanquinho': 'BLINDAGEM' };
   const produtoCanon = p => { const s = String(p || '').trim(); return PRODUTOS_ANTIGOS[norm(s)] || s.toUpperCase(); };
+  /* Instalação de RC vem na mesma aba da planilha (fechamento_producao), com produto "INSTALACAO DE RC".
+     No painel ela é um serviço à parte: não soma nas blindagens. */
+  const ehRC = p => /(^|\s)rc$/.test(norm(p));
 
   function prepFechamento(rows) {
     rows.forEach(f => {
@@ -383,6 +389,8 @@ window.CEO_ACESSO = {
       MED = MED.filter(f => BASES_OK.has(norm(f._base)));
       PRO = PRO.filter(f => BASES_OK.has(norm(f._base)));
     }
+    RC = PRO.filter(f => ehRC(f._produto));
+    PRO = PRO.filter(f => !ehRC(f._produto));
   }
 
   /* ------------------------------------------------------------ importar / baixar CSV */
@@ -402,7 +410,7 @@ window.CEO_ACESSO = {
       return { nome, texto: 'não reconheci as colunas (preciso de data, base e quantidade) — nada importado', erro: true };
     const pro = cols.includes('produto');                       // com "produto" = Blindagem; sem = Medidores
     const alvo = pro ? EXTRA.pro : EXTRA.med;
-    const existentes = new Set([...(pro ? PRO : MED), ...alvo].map(chaveLinha));   // mesmo dia + base (+ produto) = já existe
+    const existentes = new Set([...(pro ? [...PRO, ...RC] : MED), ...alvo].map(chaveLinha));   // mesmo dia + base (+ produto) = já existe
     const entram = []; let repetidas = 0, invalidas = 0;
     rows.forEach(r => {
       if (!toDate(r.data) || !String(r.base || '').trim()) { invalidas++; return; }
@@ -467,7 +475,7 @@ window.CEO_ACESSO = {
 
   function refGeral() {
     let ref = null;
-    [...MED, ...PRO].forEach(x => { if (x._d && (!ref || x._d > ref)) ref = x._d; });
+    [...MED, ...PRO, ...RC].forEach(x => { if (x._d && (!ref || x._d > ref)) ref = x._d; });
     if (!ref) ref = new Date();
     ref.setHours(0, 0, 0, 0);
     return ref;
@@ -808,9 +816,23 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const fprod = $('#fprod'); if (fprod) fprod.onchange = () => { filtroP.produto = fprod.value; render(); };
   }
 
+  /* ------------------------------------------------------------ instalação de RC */
+  function renderRC(ref) {
+    $('#pageTitle').textContent = 'Instalação de RC por base';
+    $('#subTitle').textContent = RC.length
+      ? `${RC.length} lançamento(s) na base · referência ${fmtD(ref)}`
+      : 'nenhum lançamento de Instalação de RC recebido ainda';
+    paginaFechamento(RC, ref, filtroR, {
+      icon: I.producao, colQtd: 'RC instalados', kpiHoje: 'RC instalados hoje',
+      tituloBarra: 'Instalação de RC por base',
+      vazioMsg: 'nenhum lançamento de Instalação de RC recebido ainda',
+      idBusca: 'fqr', idBaseSel: 'fbaser', idMesSel: 'fmesr', idPeriodoSel: 'fperr', arquivo: 'instalacao-rc', comProduto: true,
+    });
+  }
+
   /* ------------------------------------------------------------ visão geral: mês a mês (as duas frentes) */
   function geralMesAMes(ref) {
-    const meses = listaMeses([...MED, ...PRO]);
+    const meses = listaMeses([...MED, ...PRO, ...RC]);
     if (!meses.length) return vazio('nenhum lançamento recebido ainda');
     const agrupa = rows => {
       const m = new Map();
@@ -821,38 +843,44 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
       });
       return m;
     };
-    const med = agrupa(MED), pro = agrupa(PRO);
+    const med = agrupa(MED), pro = agrupa(PRO), rc = agrupa(RC);
+    const temRC = RC.some(f => !baseGeral || f._base === baseGeral);   // colunas de RC só quando há RC pra mostrar
     const g = (m, k) => m.get(k) || { q: 0, e: 0, n: 0 };
     const maxMed = Math.max(1, ...meses.map(k => g(med, k).q));
     const maxPro = Math.max(1, ...meses.map(k => g(pro, k).q));
+    const maxRc = Math.max(1, ...meses.map(k => g(rc, k).q));
     const refM = ym(ref);
     const traco = '<span style="color:var(--muted)">—</span>';
     const barra = (v, mx, cor) => { const p = Math.round(v / mx * 100); return v ? `background:linear-gradient(90deg,color-mix(in srgb,${cor} 26%,transparent) ${p}%,transparent ${p}%)` : ''; };
     const td = (ir, m, v, estilo = '') => `<td class="num" data-ir="${ir}" data-m="${m}" style="${estilo}">${v ? n0(v) : traco}</td>`;
 
     const linhas = meses.map(m => {
-      const a = g(med, m), b = g(pro, m);
+      const a = g(med, m), b = g(pro, m), c = g(rc, m);
       return `<tr class="${m === refM ? 'ref' : ''}"><td class="mes">${esc(rotMes(m))}${m === refM ? ' <span class="ar">referência</span>' : ''}</td>
         ${td('medidores', m, a.q, barra(a.q, maxMed, 'var(--s1)'))}${td('medidores', m, a.e)}${td('medidores', m, a.n)}
-        ${td('producao', m, b.q, barra(b.q, maxPro, 'var(--s3)'))}${td('producao', m, b.e)}${td('producao', m, b.n)}</tr>`;
+        ${td('producao', m, b.q, barra(b.q, maxPro, 'var(--s3)'))}${td('producao', m, b.e)}${td('producao', m, b.n)}
+        ${temRC ? td('rc', m, c.q, barra(c.q, maxRc, 'var(--s4)')) + td('rc', m, c.e) + td('rc', m, c.n) : ''}</tr>`;
     }).join('');
     const soma = (mapa, campo) => meses.reduce((s, k) => s + g(mapa, k)[campo], 0);
     const fim = `<tr class="fim"><td class="mes">Total</td>
         ${td('medidores', '', soma(med, 'q'))}${td('medidores', '', soma(med, 'e'))}${td('medidores', '', soma(med, 'n'))}
-        ${td('producao', '', soma(pro, 'q'))}${td('producao', '', soma(pro, 'e'))}${td('producao', '', soma(pro, 'n'))}</tr>`;
+        ${td('producao', '', soma(pro, 'q'))}${td('producao', '', soma(pro, 'e'))}${td('producao', '', soma(pro, 'n'))}
+        ${temRC ? td('rc', '', soma(rc, 'q')) + td('rc', '', soma(rc, 'e')) + td('rc', '', soma(rc, 'n')) : ''}</tr>`;
 
     EXPORTAR = {
       arquivo: 'visao-geral-mes-a-mes' + (baseGeral ? '-' + norm(baseGeral).replace(/\s+/g, '-') : ''),
-      cab: ['mes', 'medidores_trocados', 'medidores_equipes', 'medidores_lancamentos', 'blindagens', 'blindagens_equipes', 'blindagens_lancamentos'],
-      dados: [...meses.map(m => { const a = g(med, m), b = g(pro, m); return [m, a.q, a.e, a.n, b.q, b.e, b.n]; }),
-        ['total', soma(med, 'q'), soma(med, 'e'), soma(med, 'n'), soma(pro, 'q'), soma(pro, 'e'), soma(pro, 'n')]],
+      cab: ['mes', 'medidores_trocados', 'medidores_equipes', 'medidores_lancamentos', 'blindagens', 'blindagens_equipes', 'blindagens_lancamentos',
+        ...(temRC ? ['rc_instalados', 'rc_equipes', 'rc_lancamentos'] : [])],
+      dados: [...meses.map(m => { const a = g(med, m), b = g(pro, m), c = g(rc, m); return [m, a.q, a.e, a.n, b.q, b.e, b.n, ...(temRC ? [c.q, c.e, c.n] : [])]; }),
+        ['total', soma(med, 'q'), soma(med, 'e'), soma(med, 'n'), soma(pro, 'q'), soma(pro, 'e'), soma(pro, 'n'),
+          ...(temRC ? [soma(rc, 'q'), soma(rc, 'e'), soma(rc, 'n')] : [])]],
     };
 
     return `<div class="card" id="geralMeses">
-      <div class="card-h"><span class="card-t">Mês a mês</span><span class="card-s">${baseGeral ? esc(baseGeral) : 'todas as bases'} · Medidores e Blindagem</span></div>
+      <div class="card-h"><span class="card-t">Mês a mês</span><span class="card-s">${baseGeral ? esc(baseGeral) : 'todas as bases'} · Medidores e Blindagem${temRC ? ' · Instalação de RC' : ''}</span></div>
       <div style="overflow:auto"><table class="mat">
-        <thead><tr><th></th><th class="grp" colspan="3">📟 Medidores</th><th class="grp" colspan="3">📦 Blindagem</th></tr>
-          <tr><th>Mês</th><th class="num">Trocados</th><th class="num">Equipes</th><th class="num">Lanç.</th><th class="num">Blindagens</th><th class="num">Equipes</th><th class="num">Lanç.</th></tr></thead>
+        <thead><tr><th></th><th class="grp" colspan="3">📟 Medidores</th><th class="grp" colspan="3">📦 Blindagem</th>${temRC ? '<th class="grp" colspan="3">🔧 Instalação de RC</th>' : ''}</tr>
+          <tr><th>Mês</th><th class="num">Trocados</th><th class="num">Equipes</th><th class="num">Lanç.</th><th class="num">Blindagens</th><th class="num">Equipes</th><th class="num">Lanç.</th>${temRC ? '<th class="num">RC inst.</th><th class="num">Equipes</th><th class="num">Lanç.</th>' : ''}</tr></thead>
         <tbody>${linhas}${fim}</tbody></table></div>
       <div class="mat-nota">Equipes = soma das equipes de cada dia · Lanç. = número de lançamentos. Clique num valor para abrir o detalhe daquele mês na aba da frente.</div>
     </div>`;
@@ -880,6 +908,13 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const comMetaProd = hojeProd.filter(p => p._meta);
     const pctMedioProd = comMetaProd.length ? Math.round(comMetaProd.reduce((s, p) => s + p._q / p._meta, 0) / comMetaProd.length * 100) : null;
 
+    const basesRC = [...new Set(RC.map(p => p._base))].filter(Boolean);
+    const hojeRC = RC.filter(p => p._k === refK);
+    const baseHojeRC = new Set(hojeRC.map(p => p._base));
+    const semHojeRC = basesRC.filter(b => !baseHojeRC.has(b) && !encerrada(b));
+    const refMes = ym(ref);
+    const mesRC = RC.filter(p => p._d && ym(p._d) === refMes).reduce((s, p) => s + p._q, 0);
+
     const linha = (l, v) => `<div class="mini"><span class="mini-l">${esc(l)}</span><span class="mini-v" style="font-weight:700;color:var(--ink)">${v}</span></div>`;
 
     const cartoesHoje = `
@@ -902,11 +937,20 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
             ${linha('Bases cadastradas', n0(basesProd.filter(b => !encerrada(b)).length))}
           </div>
         </div>
+        ${RC.length ? `<div class="card">
+          <div class="card-b">
+            <h2>${svg(I.producao, 16)} Instalação de RC</h2>
+            ${linha('RC instalados hoje', n0(hojeRC.reduce((s, p) => s + p._q, 0)))}
+            ${linha('RC instalados no mês', n0(mesRC))}
+            ${linha('Bases sem lançar hoje', semHojeRC.length ? tag(n0(semHojeRC.length), 'var(--warn)') : tag('0', 'var(--good)'))}
+            ${linha('Bases que lançam RC', esc(basesRC.join(', ')))}
+          </div>
+        </div>` : ''}
       </div>
       <div class="footnote" style="margin-top:2px">Use as abas acima para ver o detalhe de cada frente.</div>
     `;
 
-    const todasBases = [...new Set([...MED, ...PRO].map(f => f._base))].filter(Boolean).sort();
+    const todasBases = [...new Set([...MED, ...PRO, ...RC].map(f => f._base))].filter(Boolean).sort();
     const chave = (id, txt) => `<button class="btn seg ${modoGeral === id ? 'on' : ''}" data-geral="${id}">${txt}</button>`;
     const topo = `<div class="bar" style="align-items:center;gap:10px">
         <span style="display:flex;gap:6px">${chave('hoje', 'Hoje')}${chave('mes', 'Mês a mês')}</span>
@@ -919,7 +963,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     document.querySelectorAll('[data-geral]').forEach(b => b.onclick = () => { modoGeral = b.dataset.geral; render(); });
     const gb = $('#gbase'); if (gb) gb.onchange = () => { baseGeral = gb.value; render(); };
     document.querySelectorAll('#geralMeses [data-ir]').forEach(el => el.onclick = () => {
-      const alvo = el.dataset.ir === 'medidores' ? filtro : filtroP;
+      const alvo = el.dataset.ir === 'medidores' ? filtro : el.dataset.ir === 'rc' ? filtroR : filtroP;
       alvo.mes = el.dataset.m || ''; alvo.base = baseGeral || ''; alvo._ini = true;
       ABA_ATIVA = el.dataset.ir; render();
       const t = $('#tblTopo'); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -932,10 +976,13 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const ref = refGeral();
     $('#topDate').textContent = fmtD(ref);
 
+    $('#tabRC').style.display = RC.length ? '' : 'none';              // a aba de RC só existe pra quem tem RC pra ver
+    if (ABA_ATIVA === 'rc' && !RC.length) ABA_ATIVA = 'medidores';
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === ABA_ATIVA));
 
     if (ABA_ATIVA === 'medidores') renderMedidores(ref);
     else if (ABA_ATIVA === 'producao') renderProducao(ref);
+    else if (ABA_ATIVA === 'rc') renderRC(ref);
     else renderGeral(ref);
 
     renderAvisoImport();
@@ -1090,8 +1137,8 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     function aplicarAcesso(s) {
       BASES_OK = s ? basesDe(s) : null;
       window.CEO_BASES_OK = BASES_OK;                                 // a tela por base (bases.js) usa a mesma lista
-      filtro.base = ''; filtroP.base = ''; baseGeral = '';
-      filtro._ini = false; filtroP._ini = false;
+      filtro.base = ''; filtroP.base = ''; filtroR.base = ''; baseGeral = '';
+      filtro._ini = false; filtroP._ini = false; filtroR._ini = false;
     }
     function entrar(s) {
       aplicarAcesso(s);
