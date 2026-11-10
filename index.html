@@ -253,6 +253,19 @@ body.travado{overflow:hidden}
   <div class="footnote">Gerado automaticamente a partir dos lançamentos do bot · <b>não contém estoque, veículos, equipes ou qualquer outro dado interno do almoxarifado</b></div>
 </div>
 <script type="application/json" id="dados-embutidos">{"fechamento_bases": "", "fechamento_producao": ""}</script>
+<script id="acesso-bases">
+/* QUEM VÊ QUAIS BASES — edite só aqui.
+   Coloque o USUÁRIO de login (o mesmo que a pessoa digita) e as bases que ela pode ver.
+   Quem NÃO estiver na lista vê todas as bases (diretoria).
+   Exemplo:
+     window.CEO_ACESSO = {
+       "joao":  ["MOGI"],
+       "maria": ["SUZANO", "ITAQUA"]
+     };
+*/
+window.CEO_ACESSO = {
+};
+</script>
 <script id="fonte-api">window.CEO_API = {"url": "https://script.google.com/macros/s/AKfycbzra6d4v5x759r0w-7jaZ2yuNwKdj1MP1hWK3xHTKg0PyKqlMzH8t-iErnK5qRqA8uP4A/exec", "intervalo": 8};</script>
 <script>
 (function () {
@@ -332,8 +345,10 @@ body.travado{overflow:hidden}
   /* ------------------------------------------------------------ dados */
   let MED = [], PRO = [];
   let ABA_ATIVA = 'medidores';
-  const filtro = { q: '', base: '', mes: '', periodo: '30d', ord: 'data', dir: -1 };
-  const filtroP = { q: '', base: '', mes: '', periodo: '30d', produto: '', ord: 'data', dir: -1 };
+  const filtro = { q: '', base: '', mes: '', periodo: '', ord: 'data', dir: -1 };
+  const filtroP = { q: '', base: '', mes: '', periodo: '', produto: '', ord: 'data', dir: -1 };
+  /* bases que o usuário logado pode ver: null = todas; senão, um Set com os nomes normalizados */
+  let BASES_OK = null;
 
   /* Nome antigo do produto: linhas já gravadas como CAIXA TANQUINHO aparecem como BLINDAGEM,
      sem precisar mexer na planilha (e as duas grafias nunca viram dois produtos). */
@@ -358,6 +373,10 @@ body.travado{overflow:hidden}
     PRO = prepFechamento(parseCSV(emb.fechamento_producao || ''));
     MED.push(...prepFechamento(EXTRA.med.map(r => ({ ...r }))));    // + o que foi importado de arquivo nesta tela
     PRO.push(...prepFechamento(EXTRA.pro.map(r => ({ ...r }))));
+    if (BASES_OK) {                                                  // gerente: só as bases liberadas pra ele
+      MED = MED.filter(f => BASES_OK.has(norm(f._base)));
+      PRO = PRO.filter(f => BASES_OK.has(norm(f._base)));
+    }
   }
 
   /* ------------------------------------------------------------ importar / baixar CSV */
@@ -605,18 +624,20 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const bases = [...new Set(rows.map(f => f._base))].filter(Boolean).sort();
     const corBase = new Map(bases.map((b, i) => [b, cores[i % cores.length]]));
 
-    const d30 = addDays(ref, -29);
-    const noPeriodo = rows.filter(f => f._d && f._d >= d30);
     const hoje = rows.filter(f => f._k === refK);
     const baseHoje = new Set(hoje.map(f => f._base));
     const semHoje = bases.filter(b => !baseHoje.has(b) && !encerrada(b));
-    const comMotivo30 = noPeriodo.filter(f => f._motivo);
     const totalHoje = hoje.reduce((s, f) => s + f._q, 0);
     const doMes = rows.filter(f => f._d && f._d.getMonth() === ref.getMonth() && f._d.getFullYear() === ref.getFullYear());
     const totalMes = doMes.reduce((s, f) => s + f._q, 0);
     const equipesMes = doMes.reduce((s, f) => s + (f._equipes || 0), 0);
+    const comMotivoMes = doMes.filter(f => f._motivo);
     const diasMes = new Set(doMes.map(f => f._k)).size || 1;
     const porDia = (Math.round(equipesMes / diasMes * 10) / 10).toLocaleString('pt-BR');
+
+    /* ao abrir o painel, o cartão por base e a tabela de lançamentos já vêm no mês de referência */
+    const refM = ym(ref);
+    if (!filtroObj._ini && rows.length) { filtroObj._ini = true; filtroObj.mes = refM; filtroObj.periodo = refM; }
 
     let linhas = rows;
     if (filtroObj.q) { const q = norm(filtroObj.q); linhas = linhas.filter(x => norm(x.base + x.motivo + x.observacao + x.gerente).includes(q)); }
@@ -652,12 +673,11 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const meses = listaMeses(rows);
     const matrizObj = matrizMeses(rows, bases, meses, ref, cfg, corBase, filtroObj.base);
 
-    /* cartão de barras por base: últimos 30 dias (padrão), um mês qualquer ou tudo */
-    if (filtroObj.periodo !== '30d' && filtroObj.periodo !== 'tudo' && !meses.includes(filtroObj.periodo)) filtroObj.periodo = '30d';
-    const refM = ym(ref);
-    const rotPeriodo = filtroObj.periodo === '30d' ? 'últimos 30 dias' : filtroObj.periodo === 'tudo' ? 'todo o período' : rotMes(filtroObj.periodo);
-    const rowsBarra = filtroObj.periodo === '30d' ? noPeriodo
-      : filtroObj.periodo === 'tudo' ? rows
+    /* cartão de barras por base: um mês (padrão = mês de referência) ou tudo */
+    if (filtroObj.periodo !== 'tudo' && !meses.includes(filtroObj.periodo))
+      filtroObj.periodo = meses.includes(refM) ? refM : (meses[meses.length - 1] || 'tudo');
+    const rotPeriodo = filtroObj.periodo === 'tudo' ? 'todo o período' : rotMes(filtroObj.periodo);
+    const rowsBarra = filtroObj.periodo === 'tudo' ? rows
       : rows.filter(f => f._d && ym(f._d) === filtroObj.periodo);
     const porBase = bases.map(b => ({ base: b, total: rowsBarra.filter(f => f._base === b).reduce((s, f) => s + f._q, 0) }))
       .filter(p => p.total > 0 || !encerrada(p.base))
@@ -665,8 +685,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const topTotal = porBase[0]?.total || 1;
     const totalBarra = porBase.reduce((s, p) => s + p.total, 0);
     const opPeriodo = (v, txt) => `<option value="${v}" ${v === filtroObj.periodo ? 'selected' : ''}>${esc(txt)}</option>`;
-    const opcoesPeriodo = opPeriodo('30d', 'Últimos 30 dias')
-      + [...meses].reverse().map(m => opPeriodo(m, rotMes(m) + (m === refM ? ' (este mês)' : ''))).join('')
+    const opcoesPeriodo = [...meses].reverse().map(m => opPeriodo(m, rotMes(m) + (m === refM ? ' (este mês)' : ''))).join('')
       + opPeriodo('tudo', 'Tudo');
 
     const html = !rows.length ? vazio(cfg.vazioMsg) : `
@@ -676,7 +695,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
         <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,${semHoje.length ? 'var(--warn)' : 'var(--good)'} 16%,transparent);color:${semHoje.length ? 'var(--warn)' : 'var(--good)'}">${svg(I.alertas, 18)}</div>
           <div><div class="kpi-l">Bases sem lançar hoje</div><div class="kpi-v">${n0(semHoje.length)}</div></div></div>
         <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--serious) 16%,transparent);color:var(--serious)">${svg(I.relatorios, 18)}</div>
-          <div><div class="kpi-l">Justificativas (30d)</div><div class="kpi-v">${n0(comMotivo30.length)}</div></div></div>
+          <div><div class="kpi-l">Justificativas no mês</div><div class="kpi-v">${n0(comMotivoMes.length)}</div></div></div>
         <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s3) 16%,transparent);color:var(--s3)">${svg(I.producao, 18)}</div>
           <div><div class="kpi-l">Total no mês</div><div class="kpi-v">${n0(totalMes)}</div></div></div>
         <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s2) 16%,transparent);color:var(--s2)">${svg(I.equipes, 18)}</div>
@@ -700,8 +719,8 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
 
       ${matrizObj.chart}
 
-      ${comMotivo30.length ? `<div class="card"><div class="card-h"><span class="card-t">Justificativas recentes</span><span class="card-s">últimos 30 dias</span></div>
-        <div class="card-b">${comMotivo30.sort((a, b) => (b._d || 0) - (a._d || 0)).slice(0, 12).map(j => `
+      ${comMotivoMes.length ? `<div class="card"><div class="card-h"><span class="card-t">Justificativas recentes</span><span class="card-s">${esc(rotMes(refM))}</span></div>
+        <div class="card-b">${comMotivoMes.sort((a, b) => (b._d || 0) - (a._d || 0)).slice(0, 12).map(j => `
           <div class="mini"><span class="mini-l">${tag(j.base, corBase.get(j._base) || 'var(--s1)')} ${esc(j.data)} — ${esc(j.motivo)}${j.observacao ? ' · ' + esc(j.observacao) : ''}</span>
           <span class="mini-v">${esc(j.gerente || '')}</span></div>`).join('')}</div></div>` : ''}
 
@@ -895,7 +914,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const gb = $('#gbase'); if (gb) gb.onchange = () => { baseGeral = gb.value; render(); };
     document.querySelectorAll('#geralMeses [data-ir]').forEach(el => el.onclick = () => {
       const alvo = el.dataset.ir === 'medidores' ? filtro : filtroP;
-      alvo.mes = el.dataset.m || ''; alvo.base = baseGeral || '';
+      alvo.mes = el.dataset.m || ''; alvo.base = baseGeral || ''; alvo._ini = true;
       ABA_ATIVA = el.dataset.ir; render();
       const t = $('#tblTopo'); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -1047,7 +1066,29 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
       $('#lgErroTxt').textContent = msg;
       $('#lgErro').classList.toggle('on', !!msg);
     }
+    /* bases liberadas: vêm do servidor (s.bases) ou da lista CEO_ACESSO deste arquivo; nada = todas */
+    const temListaAcesso = () => Object.keys(window.CEO_ACESSO || {}).length > 0;
+    function basesDe(s) {
+      let b = s.bases;
+      if (b == null) {
+        const m = window.CEO_ACESSO || {};
+        const k = Object.keys(m).find(x => norm(x) === norm(s.u || ''));
+        b = k ? m[k] : null;
+      }
+      if (typeof b === 'string') b = b.split(/[,;]/);
+      if (!Array.isArray(b)) return null;
+      b = b.map(x => norm(x)).filter(Boolean);
+      if (!b.length || b.includes('*') || b.includes('todas')) return null;
+      return new Set(b);
+    }
+    function aplicarAcesso(s) {
+      BASES_OK = s ? basesDe(s) : null;
+      window.CEO_BASES_OK = BASES_OK;                                 // a tela por base (bases.js) usa a mesma lista
+      filtro.base = ''; filtroP.base = ''; baseGeral = '';
+      filtro._ini = false; filtroP._ini = false;
+    }
     function entrar(s) {
+      aplicarAcesso(s);
       API.token = s.token; ativo = true;
       $('#login').hidden = true; document.body.classList.remove('travado');
       $('#sessaoNome').textContent = '👤 ' + (s.nome || '');
@@ -1067,7 +1108,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     function sair(msg) {
       ativo = false; API.token = ''; versaoApi = null; ja_carregou = false; ultimoOk = 0;
       try { localStorage.removeItem(CHAVE_SESSAO); sessionStorage.removeItem(CHAVE_SESSAO); } catch (e) {}
-      pendente = null;
+      pendente = null; aplicarAcesso(null);
       $('#dados-embutidos').textContent = '{"fechamento_bases": "", "fechamento_producao": ""}';   // tira os dados da tela
       render();
       $('#topAtual').textContent = '';
@@ -1088,7 +1129,8 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
       try {
         const r = await pedirLogin(u, p, lembrar);
         if (!r || !r.ok) throw new Error((r && r.erro) || 'Não foi possível entrar.');
-        const s = { token: r.token, nome: r.nome, expira: r.expira };
+        const s = { token: r.token, nome: r.nome, expira: r.expira, u };
+        if (r.bases != null) s.bases = r.bases;
         guardarSessao(s, lembrar);
         $('#lgPass').value = '';
         entrar(s);
@@ -1103,7 +1145,8 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     });
 
     const sessaoSalva = lerSessao();
-    if (sessaoSalva) entrar(sessaoSalva); else mostrarLogin('');
+    /* sessão antiga (sem o usuário gravado) não dá pra saber as bases: pede o login de novo */
+    if (sessaoSalva && (sessaoSalva.u || sessaoSalva.bases != null || !temListaAcesso())) entrar(sessaoSalva); else mostrarLogin('');
   } else {
     setInterval(() => { aplicarPendente(); pedirDados(); }, 10000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) pedirDados(); });
