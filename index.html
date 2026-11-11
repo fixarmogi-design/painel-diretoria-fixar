@@ -358,6 +358,9 @@ window.CEO_ACESSO = {
   const filtroR = { q: '', base: '', mes: '', periodo: '', ord: 'data', dir: -1 };
   /* bases que o usuário logado pode ver: null = todas; senão, um Set com os nomes normalizados */
   let BASES_OK = null;
+  /* nomes das bases liberadas (gerente): aparecem na tela mesmo sem nenhum lançamento ainda */
+  let BASES_NOMES = [];
+  const comLiberadas = lista => [...new Set([...lista, ...BASES_NOMES])];
 
   /* Nome antigo do produto: linhas já gravadas como CAIXA TANQUINHO aparecem como BLINDAGEM,
      sem precisar mexer na planilha (e as duas grafias nunca viram dois produtos). */
@@ -366,6 +369,7 @@ window.CEO_ACESSO = {
   /* Instalação de RC vem na mesma aba da planilha (fechamento_producao), com produto "INSTALACAO DE RC".
      No painel ela é um serviço à parte: não soma nas blindagens. */
   const ehRC = p => /(^|\s)rc$/.test(norm(p));
+  const BASES_RC = ['CEMIG'];   // bases que lançam Instalação de RC no bot
 
   function prepFechamento(rows) {
     rows.forEach(f => {
@@ -635,7 +639,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
      base/dia, com meta, quantidade e motivo opcional. */
   function paginaFechamento(rows, ref, filtroObj, cfg) {
     const refK = key(ref);
-    const bases = [...new Set(rows.map(f => f._base))].filter(Boolean).sort();
+    const bases = (rows === RC ? [...new Set(rows.map(f => f._base))] : comLiberadas(rows.map(f => f._base))).filter(Boolean).sort();
     const corBase = new Map(bases.map((b, i) => [b, cores[i % cores.length]]));
 
     const hoje = rows.filter(f => f._k === refK);
@@ -702,7 +706,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const opcoesPeriodo = [...meses].reverse().map(m => opPeriodo(m, rotMes(m) + (m === refM ? ' (este mês)' : ''))).join('')
       + opPeriodo('tudo', 'Tudo');
 
-    const html = !rows.length ? vazio(cfg.vazioMsg) : `
+    const html = !rows.length ? vazio(cfg.vazioMsg + (BASES_NOMES.length && rows !== RC ? ' · suas bases: ' + BASES_NOMES.join(' e ') : '')) : `
       <div class="kpis">
         <div class="card kpi"><div class="kpi-ic" style="background:color-mix(in srgb,var(--s1) 16%,transparent);color:var(--s1)">${svg(cfg.icon, 18)}</div>
           <div><div class="kpi-l">${cfg.kpiHoje}</div><div class="kpi-v">${n0(totalHoje)}</div></div></div>
@@ -892,7 +896,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     $('#subTitle').textContent = `Medidores e Blindagem lado a lado · referência ${fmtD(ref)}`;
 
     const refK = key(ref);
-    const bases = [...new Set(MED.map(f => f._base))].filter(Boolean);
+    const bases = comLiberadas(MED.map(f => f._base)).filter(Boolean);
     const hojeMed = MED.filter(f => f._k === refK);
     const baseHojeMed = new Set(hojeMed.map(f => f._base));
     const semHojeMed = bases.filter(b => !baseHojeMed.has(b) && !encerrada(b));
@@ -900,7 +904,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const comMetaMed = hojeMed.filter(f => f._meta);
     const pctMedioMed = comMetaMed.length ? Math.round(comMetaMed.reduce((s, f) => s + f._q / f._meta, 0) / comMetaMed.length * 100) : null;
 
-    const basesProd = [...new Set(PRO.map(p => p._base))].filter(Boolean);
+    const basesProd = comLiberadas(PRO.map(p => p._base)).filter(Boolean);
     const hojeProd = PRO.filter(p => p._k === refK);
     const baseHojeProd = new Set(hojeProd.map(p => p._base));
     const semHojeProd = basesProd.filter(b => !baseHojeProd.has(b) && !encerrada(b));
@@ -950,7 +954,7 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
       <div class="footnote" style="margin-top:2px">Use as abas acima para ver o detalhe de cada frente.</div>
     `;
 
-    const todasBases = [...new Set([...MED, ...PRO, ...RC].map(f => f._base))].filter(Boolean).sort();
+    const todasBases = comLiberadas([...MED, ...PRO, ...RC].map(f => f._base)).filter(Boolean).sort();
     const chave = (id, txt) => `<button class="btn seg ${modoGeral === id ? 'on' : ''}" data-geral="${id}">${txt}</button>`;
     const topo = `<div class="bar" style="align-items:center;gap:10px">
         <span style="display:flex;gap:6px">${chave('hoje', 'Hoje')}${chave('mes', 'Mês a mês')}</span>
@@ -976,8 +980,10 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
     const ref = refGeral();
     $('#topDate').textContent = fmtD(ref);
 
-    $('#tabRC').style.display = RC.length ? '' : 'none';              // a aba de RC só existe pra quem tem RC pra ver
-    if (ABA_ATIVA === 'rc' && !RC.length) ABA_ATIVA = 'medidores';
+    /* a aba de RC aparece pra diretoria e pra quem vê uma base que lança RC, mesmo antes do 1º lançamento */
+    const veRC = RC.length > 0 || !BASES_OK || BASES_RC.some(b => BASES_OK.has(norm(b)));
+    $('#tabRC').style.display = veRC ? '' : 'none';
+    if (ABA_ATIVA === 'rc' && !veRC) ABA_ATIVA = 'medidores';
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === ABA_ATIVA));
 
     if (ABA_ATIVA === 'medidores') renderMedidores(ref);
@@ -1130,11 +1136,14 @@ function graficoMediaMensal(meses, ordem, get, corBase, cfg, refM, filtroBase) {
       }
       if (typeof b === 'string') b = b.split(/[,;]/);
       if (!Array.isArray(b)) return null;
+      const nomes = b.map(x => String(x ?? '').toUpperCase().trim()).filter(Boolean);
       b = b.map(x => norm(x)).filter(Boolean);
       if (!b.length || b.includes('*') || b.includes('todas')) return null;
+      BASES_NOMES = nomes;
       return new Set(b);
     }
     function aplicarAcesso(s) {
+      BASES_NOMES = [];
       BASES_OK = s ? basesDe(s) : null;
       window.CEO_BASES_OK = BASES_OK;                                 // a tela por base (bases.js) usa a mesma lista
       filtro.base = ''; filtroP.base = ''; filtroR.base = ''; baseGeral = '';
